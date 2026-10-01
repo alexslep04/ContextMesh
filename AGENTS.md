@@ -27,7 +27,7 @@ Before making meaningful changes:
 4. Keep changes scoped to the requested task.
 5. Do not redesign the architecture unless the task explicitly requires it.
 
-If this file and `ContextMesh_SPEC.md` conflict, treat `ContextMesh_SPEC.md` as the product/architecture source of truth.
+If this file and `ContextMesh_SPEC.md` conflict, treat `ContextMesh_SPEC.md` as the product/architecture source of truth. `PLAN.md` describes sequencing and verification; it must not silently change product scope.
 
 ---
 
@@ -253,6 +253,27 @@ Do not add cloud hosting, remote accounts, team permissions, or remote synchroni
 
 Local services should bind to loopback interfaces by default where appropriate.
 
+### 11. Version durable memories
+
+Durable decisions, progress checkpoints, handoffs, and blocker resolutions are
+versioned records. New content supersedes old content; it must not overwrite
+history or make a previous source impossible to inspect. FTS5 is a retrieval
+index, not the source of truth.
+
+### 12. Keep boundaries explicit
+
+HTTP, MCP, CLI, and adapter inputs must use the same validated application
+contracts. They must not access Drizzle repositories directly or duplicate
+coordination logic. Adapters translate host-specific payloads into normalized
+ContextMesh events.
+
+### 13. Idempotency and evidence
+
+External event delivery may be duplicated or delayed. Processing must be
+idempotent by source event identity where one is available. Agent reports
+describe intent; Git inspection supplies repository evidence. Never infer
+changed files only from an agent claim when Git evidence is available.
+
 ---
 
 ## Suggested Internal Event Types
@@ -385,6 +406,11 @@ Follow the same rule.
 
 The Claude integration should translate Claude-specific hooks/events into the same normalized ContextMesh structures used by Codex.
 
+Claude Code currently exposes session, tool, stop, and HTTP hook surfaces. Use
+only the capabilities verified in the adapter implementation and document any
+fallback behavior. Codex capabilities must be detected rather than assumed;
+explicit MCP reporting is the safe baseline.
+
 ---
 
 ## MCP Guidance
@@ -421,6 +447,16 @@ Do not expose unnecessary low-level database operations directly to agents.
 - Use descriptive names.
 - Add comments for non-obvious reasoning, not for obvious syntax.
 - Do not silently swallow errors.
+
+Scoped instructions live beside the code they govern:
+
+- `src/domain/AGENTS.md`
+- `src/application/AGENTS.md`
+- `src/storage/AGENTS.md`
+- `src/transport/AGENTS.md`
+- `src/adapters/AGENTS.md`
+- `tests/AGENTS.md`
+- `docs/AGENTS.md`
 
 ---
 
@@ -462,6 +498,10 @@ Before claiming a task is complete:
    - suggested next step.
 
 Do not claim success if tests are failing or the feature was not verified.
+
+For behavior changes, add or update deterministic tests. At minimum, cover
+the happy path, invalid input, relevant state boundaries, and cross-layer
+integration when the change crosses an API, adapter, database, or MCP seam.
 
 ---
 

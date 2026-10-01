@@ -1051,3 +1051,107 @@ ContextMesh succeeds if one developer can run multiple AI coding sessions while 
 - and where the next session should continue.
 
 The MVP should stay focused on that problem.
+
+---
+
+## 39. Durable Memory Contract
+
+The MVP stores durable project knowledge as versioned memories. Memory kinds
+include decisions, progress checkpoints, completion handoffs, blocker
+resolutions, and project facts.
+
+Each memory version records its project/repository scope, source session,
+content, creation time, and the version it supersedes. Updating a memory adds
+a new version; it does not overwrite or destroy the prior version. Deleted or
+superseded records are excluded from normal retrieval but remain inspectable
+through history and export operations.
+
+SQLite FTS5 is a retrieval index over searchable current memory versions. It is
+not the source of truth and must not be used to reconstruct history.
+
+## 40. Boundary and Idempotency Contract
+
+HTTP, MCP, CLI, and adapter inputs use the same validated application
+contracts. None of these interfaces may access Drizzle repositories directly.
+They call application services that own coordination behavior.
+
+Incoming events are idempotent by source event identity when the host provides
+one. Duplicate or delayed delivery must not create duplicate sessions, tasks,
+memory versions, or warnings. Every accepted event remains inspectable in
+event history.
+
+Agent reports describe intent. Git inspection supplies evidence for changed
+files, branches, worktrees, commits, and diffs. The system must distinguish
+expected files from observed modifications and must not treat an agent claim as
+proof of a repository change.
+
+## 41. Target Local API Contract
+
+The local Fastify service binds to loopback by default and initially exposes:
+
+```text
+GET    /health
+GET    /v1/status
+POST   /v1/events
+GET    /v1/context
+GET    /v1/sessions
+GET    /v1/warnings
+GET    /v1/memories
+GET    /v1/memories/:id
+PATCH  /v1/memories/:id
+DELETE /v1/memories/:id
+GET    /v1/memories/export
+```
+
+Request bodies, query parameters, and tool inputs are validated with Zod.
+Errors use a consistent structured JSON shape and never expose stack traces or
+secrets.
+
+The current foundation implements only `/health`, `/v1/status`, and
+`POST /v1/events`. The remaining routes are target MVP contracts and must be
+added as storage-backed application services are implemented.
+
+## 42. MCP Contract
+
+MCP is a thin agent-facing interface over the application services. Initial
+tools are:
+
+```text
+get_project_context
+get_active_sessions
+get_conflicts
+report_task
+update_task
+complete_task
+record_decision
+record_blocker
+resolve_blocker
+save_progress_checkpoint
+```
+
+MCP must not expose raw database operations. The same schemas and semantics
+apply whether an operation arrives through MCP, HTTP, or a host adapter.
+
+The current foundation implements `get_project_context` and `report_task`
+against the in-memory processor. The remaining tools are target MVP contracts.
+
+## 43. Adapter Capability Contract
+
+Adapters must report their supported capabilities rather than pretending the
+hosts are equivalent. Claude Code may use documented session, tool, stop, and
+HTTP hook surfaces. Codex begins with explicit MCP reporting and context
+retrieval until an automatic lifecycle surface is verified.
+
+When ContextMesh is unavailable, adapter delivery failures are logged and
+reported diagnostically but must not block the host agent's work.
+
+## 44. Implementation Source of Truth
+
+The repository uses these ownership boundaries:
+
+1. `ContextMesh_SPEC.md` defines product behavior and architectural constraints.
+2. `PLAN.md` defines implementation sequencing and verification gates.
+3. `AGENTS.md` and scoped agent files define collaboration and code-quality
+   rules.
+4. Code and tests define implemented behavior.
+5. Important architectural changes update the specification deliberately.
