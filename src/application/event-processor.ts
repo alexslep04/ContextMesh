@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Session, Task, Warning } from "../domain/entities.js";
+import type { EventPersistence } from "./event-persistence.js";
 import {
   contextMeshEventSchema,
   type ContextMeshEvent,
@@ -9,19 +10,26 @@ import {
   taskPayloadSchema,
   taskUpdatePayloadSchema,
 } from "../domain/schemas.js";
+import type { ProcessorSnapshot } from "../domain/state.js";
 
-export interface ProcessorSnapshot {
-  sessions: Session[];
-  tasks: Task[];
-  warnings: Warning[];
-  acceptedEventCount: number;
-}
+export type { ProcessorSnapshot } from "../domain/state.js";
 
 export class EventProcessor {
   private readonly sessions = new Map<string, Session>();
   private readonly tasks = new Map<string, Task>();
   private readonly warnings = new Map<string, Warning>();
   private readonly acceptedEventIds = new Set<string>();
+  private readonly latestEventAt = new Map<string, string>();
+
+  constructor(private readonly persistence?: EventPersistence) {
+    const state = persistence?.load();
+    if (!state) return;
+    for (const session of state.snapshot.sessions) this.sessions.set(stateKey(session.projectId, session.id), session);
+    for (const task of state.snapshot.tasks) this.tasks.set(stateKey(task.projectId, task.id), task);
+    for (const warning of state.snapshot.warnings) this.warnings.set(warning.id, warning);
+    for (const identity of state.eventIdentities) this.acceptedEventIds.add(identity);
+    for (const [scope, occurredAt] of Object.entries(state.latestEventAt)) this.latestEventAt.set(scope, occurredAt);
+  }
 
   ingest(input: unknown): { accepted: boolean; snapshot: ProcessorSnapshot } {
     const event = contextMeshEventSchema.parse(input);
@@ -34,9 +42,42 @@ export class EventProcessor {
       return { accepted: false, snapshot: this.snapshot() };
     }
 
-    this.apply(event);
-    this.acceptedEventIds.add(identity);
-    return { accepted: true, snapshot: this.snapshot() };
+    const scope = eventScope(event);
+    const latestEventAt = this.latestEventAt.get(scope);
+    if (latestEventAt && event.occurredAt < latestEventAt) {
+      return { accepted: false, snapshot: this.snapshot() };
+    }
+
+    if (event.type === "task_started") {
+      const taskId = typeof event.payload.taskId === "string" ? event.payload.taskId : undefined;
+      const existingTask = taskId ? this.tasks.get(stateKey(event.projectId, taskId)) : undefined;
+      if (existingTask?.status === "completed" && event.occurredAt <= existingTask.updatedAt) {
+        return { accepted: false, snapshot: this.snapshot() };
+      }
+    }
+
+    const previous = this.snapshot();
+    try {
+      this.apply(event);
+      this.acceptedEventIds.add(identity);
+      this.latestEventAt.set(scope, event.occurredAt);
+      const snapshot = this.snapshot();
+      const persisted = this.persistence?.persist(event, identity, snapshot) ?? true;
+      if (!persisted) {
+        this.restore(previous);
+        this.acceptedEventIds.delete(identity);
+        if (latestEventAt) this.latestEventAt.set(scope, latestEventAt);
+        else this.latestEventAt.delete(scope);
+        return { accepted: false, snapshot: this.snapshot() };
+      }
+      return { accepted: true, snapshot };
+    } catch (error) {
+      this.restore(previous);
+      this.acceptedEventIds.delete(identity);
+      if (latestEventAt) this.latestEventAt.set(scope, latestEventAt);
+      else this.latestEventAt.delete(scope);
+      throw error;
+    }
   }
 
   snapshot(projectId?: string): ProcessorSnapshot {
@@ -57,7 +98,7 @@ export class EventProcessor {
   private apply(event: ContextMeshEvent): void {
     switch (event.type) {
       case "session_started":
-        this.sessions.set(event.sessionId, {
+        this.sessions.set(stateKey(event.projectId, event.sessionId), {
           id: event.sessionId,
           projectId: event.projectId,
           agentType: event.source === "claude_code" || event.source === "codex"
@@ -68,7 +109,7 @@ export class EventProcessor {
         });
         return;
       case "session_ended": {
-        const session = this.sessions.get(event.sessionId);
+        const session = this.sessions.get(stateKey(event.projectId, event.sessionId));
         if (session) {
           session.status = "ended";
           session.lastActivityAt = event.occurredAt;
@@ -77,7 +118,7 @@ export class EventProcessor {
       }
       case "task_started": {
         const payload = taskPayloadSchema.parse(event.payload);
-        this.tasks.set(payload.taskId, {
+        this.tasks.set(stateKey(event.projectId, payload.taskId), {
           id: payload.taskId,
           projectId: event.projectId,
           sessionId: event.sessionId,
@@ -87,14 +128,14 @@ export class EventProcessor {
           modifiedFiles: [],
           updatedAt: event.occurredAt,
         });
-        const session = this.sessions.get(event.sessionId);
+        const session = this.sessions.get(stateKey(event.projectId, event.sessionId));
         if (session) session.taskId = payload.taskId;
         this.refreshOverlaps(event.projectId);
         return;
       }
       case "task_updated": {
         const payload = taskUpdatePayloadSchema.parse(event.payload);
-        const task = this.tasks.get(payload.taskId);
+        const task = this.tasks.get(stateKey(event.projectId, payload.taskId));
         if (!this.ownsTask(task, event)) return;
         if (payload.title) task.title = payload.title;
         if (payload.expectedFiles) task.expectedFiles = payload.expectedFiles;
@@ -104,7 +145,7 @@ export class EventProcessor {
       }
       case "task_completed": {
         const taskId = zTaskId(event.payload);
-        const task = this.tasks.get(taskId);
+        const task = this.tasks.get(stateKey(event.projectId, taskId));
         if (this.ownsTask(task, event)) {
           task.status = "completed";
           task.updatedAt = event.occurredAt;
@@ -114,7 +155,7 @@ export class EventProcessor {
       }
       case "file_intent_declared": {
         const payload = filePayloadSchema.parse(event.payload);
-        const task = this.tasks.get(payload.taskId);
+        const task = this.tasks.get(stateKey(event.projectId, payload.taskId));
         if (this.ownsTask(task, event) && !task.expectedFiles.includes(payload.path)) {
           task.expectedFiles.push(payload.path);
           task.updatedAt = event.occurredAt;
@@ -124,7 +165,7 @@ export class EventProcessor {
       }
       case "file_modified": {
         const payload = filePayloadSchema.parse(event.payload);
-        const task = this.tasks.get(payload.taskId);
+        const task = this.tasks.get(stateKey(event.projectId, payload.taskId));
         if (this.ownsTask(task, event) && !task.modifiedFiles.includes(payload.path)) {
           task.modifiedFiles.push(payload.path);
           task.updatedAt = event.occurredAt;
@@ -162,7 +203,7 @@ export class EventProcessor {
   }
 
   private addWarning(kind: Warning["kind"], projectId: string, taskIds: string[], files: string[]): void {
-    const id = `${kind}:${[...taskIds].sort().join(",")}`;
+    const id = JSON.stringify([projectId, kind, [...taskIds].sort()]);
     this.warnings.set(id, {
       id,
       kind,
@@ -175,10 +216,28 @@ export class EventProcessor {
       createdAt: new Date().toISOString(),
     });
   }
+
+  private restore(snapshot: ProcessorSnapshot): void {
+    this.sessions.clear();
+    this.tasks.clear();
+    this.warnings.clear();
+    for (const session of snapshot.sessions) this.sessions.set(stateKey(session.projectId, session.id), session);
+    for (const task of snapshot.tasks) this.tasks.set(stateKey(task.projectId, task.id), task);
+    for (const warning of snapshot.warnings) this.warnings.set(warning.id, warning);
+  }
 }
 
 function eventIdentity(event: ContextMeshEvent): string {
-  return [event.source, event.projectId, event.sessionId, event.sourceEventId ?? event.eventId].join(":");
+  return JSON.stringify([event.source, event.projectId, event.sessionId, event.sourceEventId ?? event.eventId]);
+}
+
+export function eventScope(event: ContextMeshEvent): string {
+  const taskId = typeof event.payload.taskId === "string" ? event.payload.taskId : undefined;
+  return JSON.stringify([event.projectId, taskId ? "task" : "session", taskId ?? event.sessionId]);
+}
+
+function stateKey(projectId: string, id: string): string {
+  return JSON.stringify([projectId, id]);
 }
 
 function zTaskId(payload: Record<string, unknown>): string {

@@ -9,11 +9,11 @@ describe("SQLite foundation", () => {
 
     database.exec(migration);
     database.prepare(
-      "INSERT INTO memory_search (memory_version_id, project_id, kind, content) VALUES (?, ?, ?, ?)",
+      "INSERT INTO cm_memory_search (memory_version_id, project_id, kind, content) VALUES (?, ?, ?, ?)",
     ).run("version-1", "project-1", "decision", "Use normalized events");
 
     const result = database.prepare(
-      "SELECT memory_version_id FROM memory_search WHERE memory_search MATCH ?",
+      "SELECT memory_version_id FROM cm_memory_search WHERE cm_memory_search MATCH ?",
     ).get("normalized");
 
     expect(result).toEqual({ memory_version_id: "version-1" });

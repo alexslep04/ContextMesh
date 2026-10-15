@@ -1,33 +1,42 @@
-import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
-export const projects = sqliteTable("projects", {
+export const projects = sqliteTable("cm_projects", {
   id: text("id").primaryKey(),
   repositoryPath: text("repository_path").notNull(),
   createdAt: text("created_at").notNull(),
 });
 
-export const sessions = sqliteTable("sessions", {
-  id: text("id").primaryKey(),
+export const sessions = sqliteTable("cm_sessions", {
+  id: text("id").notNull(),
   projectId: text("project_id").notNull(),
   agentType: text("agent_type").notNull(),
   status: text("status").notNull(),
+  taskId: text("task_id"),
   lastActivityAt: text("last_activity_at").notNull(),
   revision: integer("revision").notNull().default(0),
-});
+}, (table) => ({
+  pk: primaryKey({ columns: [table.projectId, table.id] }),
+}));
 
-export const tasks = sqliteTable("tasks", {
-  id: text("id").primaryKey(),
+export const tasks = sqliteTable("cm_tasks", {
+  id: text("id").notNull(),
   projectId: text("project_id").notNull(),
   sessionId: text("session_id").notNull(),
   title: text("title").notNull(),
   status: text("status").notNull(),
   expectedFiles: text("expected_files", { mode: "json" }).$type<string[]>().notNull(),
+  modifiedFiles: text("modified_files", { mode: "json" }).$type<string[]>().notNull(),
   updatedAt: text("updated_at").notNull(),
   revision: integer("revision").notNull().default(0),
-});
+}, (table) => ({
+  pk: primaryKey({ columns: [table.projectId, table.id] }),
+}));
 
-export const events = sqliteTable("events", {
+export const events = sqliteTable("cm_events", {
   id: text("id").primaryKey(),
+  eventId: text("event_id").notNull(),
+  identity: text("identity").notNull(),
+  scope: text("scope").notNull(),
   source: text("source").notNull(),
   sourceEventId: text("source_event_id"),
   type: text("type").notNull(),
@@ -36,17 +45,17 @@ export const events = sqliteTable("events", {
   payload: text("payload", { mode: "json" }).$type<Record<string, unknown>>().notNull(),
   occurredAt: text("occurred_at").notNull(),
 }, (table) => ({
-  sourceIdentity: uniqueIndex("events_source_identity").on(table.source, table.sourceEventId, table.projectId, table.sessionId),
+  sourceIdentity: uniqueIndex("cm_events_identity").on(table.identity),
 }));
 
-export const memories = sqliteTable("memories", {
+export const memories = sqliteTable("cm_memories", {
   id: text("id").primaryKey(),
   projectId: text("project_id").notNull(),
   currentVersionId: text("current_version_id"),
   status: text("status").notNull().default("active"),
 });
 
-export const memoryVersions = sqliteTable("memory_versions", {
+export const memoryVersions = sqliteTable("cm_memory_versions", {
   id: text("id").primaryKey(),
   memoryId: text("memory_id").notNull(),
   version: integer("version").notNull(),
@@ -55,5 +64,15 @@ export const memoryVersions = sqliteTable("memory_versions", {
   content: text("content").notNull(),
   sourceSessionId: text("source_session_id"),
   supersedesVersionId: text("supersedes_version_id"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const warnings = sqliteTable("cm_warnings", {
+  id: text("id").primaryKey(),
+  kind: text("kind").notNull(),
+  projectId: text("project_id").notNull(),
+  taskIds: text("task_ids", { mode: "json" }).$type<string[]>().notNull(),
+  files: text("files", { mode: "json" }).$type<string[]>().notNull(),
+  message: text("message").notNull(),
   createdAt: text("created_at").notNull(),
 });

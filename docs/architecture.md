@@ -19,5 +19,6 @@ Host hooks / MCP / CLI
    SQLite + FTS5     Git evidence
 ```
 
-The current foundation includes a deterministic in-memory processor so the
-event and overlap behavior can be tested before persistence is wired in.
+The current foundation includes a SQLite persistence adapter for event history,
+sessions, tasks, and overlap warnings. It uses isolated `cm_*` tables while the
+repository's separate generic SQL schema is reconciled in a later migration.
