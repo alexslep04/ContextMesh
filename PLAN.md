@@ -13,7 +13,7 @@ for vertical implementation:
 
 - TypeScript and Node.js project configuration.
 - Zod-validated normalized events.
-- A small in-memory event processor for deterministic mock-session behavior.
+- A restart-safe SQLite event processor for deterministic mock-session behavior.
 - Fastify health and event-ingestion routes.
 - SQLite/Drizzle schema and FTS5 migration boundary.
 - Commander CLI boundary.
@@ -21,9 +21,10 @@ for vertical implementation:
 - Common, Claude Code, and Codex adapter boundaries.
 - Scoped `AGENTS.md` instructions.
 
-The in-memory processor is intentionally not the final persistence layer. The
-next slice replaces its state store with the Drizzle repositories while keeping
-the event and application contracts stable.
+The current persistence adapter uses isolated `cm_*` tables so it does not
+collide with the separately introduced generic SQL schema under
+`src/database/schema.sql`. A later migration will reconcile those schemas while
+keeping the event and application contracts stable.
 
 ## Architecture Decisions
 

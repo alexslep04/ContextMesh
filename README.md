@@ -61,10 +61,10 @@ in control.
 ## Project Status
 
 The repository is in foundation development. The current slice establishes the
-normalized event contract, an in-memory event processor, the local Fastify
-boundary, SQLite/Drizzle schema boundaries, MCP tool boundaries, and a CLI
-entry point. Persistent projections, Git verification, and host adapters are
-the next implementation slices.
+normalized event contract, restart-safe SQLite event/projection persistence,
+the local Fastify boundary, MCP tool boundaries, and a CLI entry point. Git
+verification, durable memory search, and host adapters are the next
+implementation slices.
 
 ## Documentation
 
@@ -138,8 +138,9 @@ During local development, invoke the CLI through npm:
 npm run cli -- status
 ```
 
-The current CLI and MCP surfaces are foundation scaffolding. Persistent
-storage-backed inspection and complete host integrations are implemented in
+The current CLI and MCP surfaces are foundation scaffolding. Persistent event
+and projection storage is active in the local service; storage-backed memory
+search, inspection commands, and complete host integrations are implemented in
 the planned vertical slices rather than assumed by the skeleton.
 
 ## Repository Layout
