@@ -3,6 +3,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { eq } from "drizzle-orm";
 import * as tables from "./schema.js";
 import { migrate } from "./migrate.js";
+import { ProjectRepository } from "./project-repository.js";
 import type { EventPersistence } from "../application/event-persistence.js";
 import { eventScope } from "../application/event-processor.js";
 import { contextMeshEventSchema, type ContextMeshEvent } from "../domain/events.js";
@@ -24,7 +25,7 @@ export class SqliteEventPersistence implements EventPersistence {
       if (!latestEventAt[scope] || latestEventAt[scope] < time) latestEventAt[scope] = time;
     }
     return { events, eventIdentities: rows.map(row => row.identity), latestEventAt, snapshot: {
-      projects: this.db.select().from(tables.projects).all(),
+      projects: new ProjectRepository(this.db).list(),
       sessions: this.db.select().from(tables.sessions).all().map(row => row.details ?? ({ id: row.id, projectId: row.projectId, agentType: row.agentType, status: row.status, taskId: row.taskId ?? undefined, lastActivityAt: row.lastActivityAt } as Session)),
       tasks: this.db.select().from(tables.tasks).all().map(row => row.details ?? ({ id: row.id, projectId: row.projectId, sessionId: row.sessionId, title: row.title, status: row.status, expectedFiles: row.expectedFiles, reportedFiles: row.modifiedFiles, modifiedFiles: [], updatedAt: row.updatedAt } as Task)),
       warnings: this.db.select().from(tables.warnings).all().map(row => row.details ?? ({ ...row, details: undefined } as unknown as Warning)),
@@ -37,7 +38,8 @@ export class SqliteEventPersistence implements EventPersistence {
     return this.db.transaction(tx => {
       const inserted = tx.insert(tables.events).values({ id: identity, eventId: event.eventId, identity, scope: eventScope(event), source: event.source, sourceEventId: event.sourceEventId, type: event.type, projectId: event.projectId, sessionId: event.sessionId, payload: event.payload, occurredAt: event.occurredAt }).onConflictDoNothing({ target: tables.events.identity }).run();
       if (!inserted.changes) return false;
-      for (const project of snapshot.projects.filter(p => p.id === event.projectId)) tx.insert(tables.projects).values(project).onConflictDoUpdate({ target: tables.projects.id, set: { repositoryPath: project.repositoryPath } }).run();
+      const projects = new ProjectRepository(tx);
+      for (const project of snapshot.projects.filter(p => p.id === event.projectId)) projects.save(project);
       for (const session of snapshot.sessions.filter(s => s.projectId === event.projectId)) {
         const row = { id: session.id, projectId: session.projectId, agentType: session.agentType, status: session.status, taskId: session.taskId ?? null, lastActivityAt: session.lastActivityAt, details: session };
         tx.insert(tables.sessions).values(row).onConflictDoUpdate({ target: [tables.sessions.projectId, tables.sessions.id], set: row }).run();

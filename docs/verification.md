@@ -8,7 +8,7 @@ presentation machine or host policy.
 
 - `npm run typecheck`: passed.
 - `npm run build`: passed, including migration asset copying.
-- `npm test`: 55 tests in 19 files passed after the Windows launch regression fix.
+- `npm test`: 58 tests in 20 files passed after the teammate SQLite integration.
 - `npm run demo`: passed with real HTTP/stdio MCP/Git/CLI/SQLite processes.
 - `node dist/src/demo/index.js`: passed against the compiled build and copied
   migrations, including a real service process restart.
@@ -23,6 +23,24 @@ legacy retries; immutable versions and current-only FTS; Git changes, linked
 worktrees, detached HEAD and failures; context scope/relevance/budgets; unavailable
 and nonresponding service errors; memory history/export; and the process-based
 acceptance scenario.
+
+## Teammate SQLite integration
+
+Integrated `origin/main` at `a08c974` on `integrate/teammate-sqlite`, with the
+previous local MVP preserved at checkpoint `5287aef` on `work/contextmesh-mvp`.
+The integration is staged for review; the final merge commit and push remain
+undone at the user's request.
+
+The teammate's project repository now participates in production persistence.
+Database startup uses the versioned migration runner, and the build uses one
+migration-copy script. Tests cover legacy database upgrades, reopening saved
+projects, and project updates through the event processor.
+
+Typecheck, build, and all 58 tests passed. Both
+`npm run demo -- --two-simulated` (`pair-2y7uKO`) and
+`node dist/src/demo/index.js --two-simulated` (`pair-nRt8Sl`) passed all eight
+checks. These runs validate the source and compiled process paths; no additional
+live model validation is claimed for this storage integration.
 
 ## Live host checks
 

@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import Database from "better-sqlite3";
 import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 import { EventProcessor } from "../../src/application/event-processor.js";
@@ -6,6 +7,25 @@ import { SqliteEventPersistence } from "../../src/storage/sqlite-event-persisten
 import { createDatabase } from "../../src/storage/client.js";
 import { events, temporaryDirectory } from "../helpers.js";
 describe("durable application records", () => {
+  it("upgrades a legacy database during opening before a project repository is used", () => {
+    const temp = temporaryDirectory(), path = join(temp.path, "legacy.db");
+    const legacy = new Database(path);
+    try {
+      legacy.exec(readFileSync("src/storage/migrations/0000_contextmesh.sql", "utf8"));
+      legacy.prepare("INSERT INTO cm_projects (id, repository_path, created_at) VALUES (?, ?, ?)").run("legacy", "/existing/repository", "2026-10-01T00:00:00.000Z");
+    } finally { legacy.close(); }
+    let database: ReturnType<typeof createDatabase> | undefined;
+    try {
+      database = createDatabase(path);
+      expect(database.sqlite.prepare("SELECT repository_path FROM cm_projects WHERE id = 'legacy'").get()).toEqual({ repository_path: "/existing/repository" });
+      expect(database.sqlite.prepare("SELECT count(*) AS n FROM cm_schema_migrations").get()).toEqual({ n: 2 });
+      expect(database.sqlite.pragma("foreign_keys", { simple: true })).toBe(1);
+      expect((database.sqlite.prepare("PRAGMA table_info(cm_sessions)").all() as { name: string }[]).some(column => column.name === "details")).toBe(true);
+      database.sqlite.close(); database = createDatabase(path);
+      expect(database.sqlite.prepare("SELECT count(*) AS n FROM cm_schema_migrations").get()).toEqual({ n: 2 });
+      expect(database.sqlite.prepare("SELECT count(*) AS n FROM cm_projects").get()).toEqual({ n: 1 });
+    } finally { database?.sqlite.close(); temp.remove(); }
+  });
   it("preserves file-backed handoffs, versions, FTS currentness, and replay identity across reopen", () => {
     const temp = temporaryDirectory(), file = join(temp.path, "state.db"), clock = events();
     let database = createDatabase(file);
@@ -27,7 +47,8 @@ describe("durable application records", () => {
     } finally { database.sqlite.close(); temp.remove(); }
   });
   it("upgrades the existing cm schema without losing legacy sessions or tasks", () => {
-    const database = createDatabase(":memory:");
+    // Construct the actual old schema: createDatabase now applies all migrations.
+    const database = { sqlite: new Database(":memory:") };
     try {
       database.sqlite.exec(readFileSync("src/storage/migrations/0000_contextmesh.sql", "utf8"));
       database.sqlite.prepare("INSERT INTO cm_sessions (id, project_id, agent_type, status, last_activity_at) VALUES ('a', 'p', 'codex', 'active', '2026-10-20T10:00:00.000Z')").run();

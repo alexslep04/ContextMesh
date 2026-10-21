@@ -1,7 +1,10 @@
 # Persistence
 
 `SqliteEventPersistence` implements the application port with Drizzle queries.
-Runtime executes versioned SQL migrations before loading state:
+`createDatabase` executes the shared versioned migration runner when opening a
+database, so standalone project repositories are ready immediately. Event
+persistence also checks that same idempotent runner for compatibility with raw
+SQLite handles. Migrations are applied once through the ledger:
 
 - `0000_contextmesh.sql`: existing `cm_*` base tables and FTS5 virtual table.
 - `0001_demo_state.sql`: detailed projections, blockers, repository evidence,
@@ -28,6 +31,13 @@ Do not remove a lock belonging to a running service.
 
 The build copies SQL migrations beside compiled storage modules, so source and
 `node dist/src/service.js` execute the same migration path.
+
+The teammate's `ProjectRepository` provides create/find/list and the projection
+save operation used inside the event transaction. Event persistence loads and
+saves projects through this repository; production writes still belong to the
+single service. Project creation time is preserved when projections update.
+`scripts/copy-migrations.mjs` is the single build asset-copy entry point; the
+duplicate `copy-assets.mjs` was removed during integration.
 
 Memory revision/deletion appends a version with an expected-version check and
 reason. Deletion is a tombstone in the existing JSON version details and marks

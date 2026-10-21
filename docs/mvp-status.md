@@ -51,8 +51,10 @@ attempt `pair-nsqdRe` correctly stopped on a host-policy blocker with no edits.
 The launcher configuration bug is now fixed; native run `pair-t1QQA9` passed
 all eight checks with actual agent edits and independent fixture tests.
 Complete [Claude/mixed-vendor acceptance](claude-validation.md). Verify native
-hook trust/shell/version behavior. Keep one active schema when reconciling the
-teammate's pending database work; review/commit the local delivery before handoff.
+hook trust/shell/version behavior. Teammate database work has been reconciled
+with the existing schema/migration runner on `integrate/teammate-sqlite`. The
+pre-integration code is saved as `5287aef`; final integration review/commit is
+pending at the user's request.
 
 Remaining breadth: confirmed per-session file authorship is intentionally not
 inferred from shared dirtiness; broader host compatibility and optional richer

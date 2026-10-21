@@ -40,8 +40,13 @@ See `docs/demo.md` and `docs/claude-validation.md` for runbooks.
   actual agent-authored files and independent fixture tests. The native launcher
   now preserves the user's normal Windows sandbox configuration.
 - [ ] Teammate live Claude/mixed-vendor/hook compatibility acceptance.
-- [ ] Team review, reconciliation of the unseen teammate SQLite changes and
-  commit/merge of the reviewed local delivery.
+- [x] Reconciled teammate SQLite changes from `a08c974`: project repository and
+  persistence test retained, project projections use the shared repository,
+  database opening uses versioned migrations, and duplicate build copying is
+  consolidated.
+- [ ] Team review and final integration commit/merge; deliberately left
+  uncommitted and unpushed at the user's request. Pre-integration work is saved
+  as `5287aef` on `work/contextmesh-mvp`.
 
 Do not enable Claude by default or label the original specification fully
 verified until those external gates pass. Follow `docs/claude-validation.md`.
