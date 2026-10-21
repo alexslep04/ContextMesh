@@ -4,15 +4,16 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.18.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/copy-assets.mjs",
     "cli": "tsx src/cli/index.ts",
     "dev": "tsx src/service.ts",
     "mcp": "tsx src/mcp.ts",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "demo": "tsx src/demo/index.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.5",

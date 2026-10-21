@@ -1,183 +1,146 @@
 # ContextMesh
 
-ContextMesh is a local coordination layer for developers running multiple AI
-coding agents on the same project.
+ContextMesh is a local shared memory and coordination service for developers
+running multiple coding agents on the same project. Agents report meaningful
+work; Git supplies repository evidence; ContextMesh returns relevant context,
+overlap warnings, decisions, and handoffs. The developer stays in control.
 
-It allows agents such as Codex and Claude Code to share relevant project context, including:
+## Current implementation
 
-- active tasks
-- recently completed work
-- important project decisions
-- blockers and next steps
-- expected and changed files
-- possible task or file overlap
+The demo slice implements:
 
-ContextMesh is local-first and is intended to help one developer run multiple AI coding sessions without manually copying context between them.
+- One local HTTP service owning SQLite state; MCP and CLI use that service.
+- Validated session/task lifecycle, updates, request identities, project
+  isolation, and persistent event history.
+- Expected-file overlap warnings with session/task/file explanations.
+- Decisions, checkpoints, blockers/resolutions, and completion handoffs.
+- Immutable memory versions and transactional FTS5 current-version indexing.
+- Git worktree/branch/HEAD and staged/unstaged/untracked evidence.
+- Deterministic project context with a serialized character budget.
+- Purposeful MCP tools, CLI inspection, and unavailable-service diagnostics.
+- Simulated and live-agent-plus-simulated-peer demo modes, including a real
+  service process restart, replay checks, and preserved evidence artifacts.
+- Two independent Codex sessions: shared context, overlap acknowledgment, task
+  narrowing, dependency blocker/resolution, both completion handoffs and session
+  endings. The harness independently executes the fixture tests.
+- Reusable `connect codex` setup for ordinary Git projects with unique session
+  identities and generated launch scripts; no global config changes.
 
-## Overview
+Managed Codex launchers register/end sessions, supply startup context and refresh
+Git. Optional host hooks are implemented and fixture-tested. Claude setup is
+disabled by default pending live verification. Version-checked memory revision,
+deletion with preserved history, and current-only search are available through
+HTTP/MCP/CLI. File activity reports remain claims; Git evidence does not
+automatically attribute shared-worktree changes to individual sessions.
 
-Each coding agent has its own context window. Without a shared coordination
-layer, agents can duplicate work, edit the same files, miss important project
-decisions, or lose the reasoning needed to continue a completed task.
+## Run locally
 
-ContextMesh gives those sessions a shared, structured project memory. Agents
-report meaningful intent such as tasks, decisions, blockers, and handoffs.
-ContextMesh combines that intent with repository evidence from Git, then makes
-the relevant context available through MCP, a local API, and a CLI.
+Requires Node.js 22.18+, npm, and Git on PATH.
 
-```text
-Codex / Claude Code
-        |
-        v
-  Host adapters and MCP
-        |
-        v
-  Local ContextMesh service
-      |             |
-      v             v
- SQLite + FTS5    Git evidence
-        |
-        v
- Relevant context, history, and overlap warnings
-```
-
-ContextMesh warns about coordination risks but does not block edits, assign
-tasks, cancel agents, or resolve conflicts autonomously. The developer stays
-in control.
-
-## Example Workflow
-
-1. Codex Session A starts an authentication task and declares `src/auth.ts`.
-2. ContextMesh records the session and task.
-3. Git or a supported hook reports that `src/auth.ts` changed.
-4. Claude Code Session B starts a password-reset task involving the same file.
-5. ContextMesh returns the relevant prior work and emits a deterministic
-   overlap warning.
-6. Session A completes its task with a summary, decisions, blockers, and next
-   steps.
-7. A later session retrieves the handoff without the developer reconstructing
-   the previous conversation.
-
-## Project Status
-
-The repository is in foundation development. The current slice establishes the
-normalized event contract, restart-safe SQLite event/projection persistence,
-the local Fastify boundary, MCP tool boundaries, and a CLI entry point. Git
-verification, durable memory search, and host adapters are the next
-implementation slices.
-
-## Documentation
-
-- `ContextMesh_SPEC.md` — product and technical specification
-- `AGENTS.md` — instructions for AI coding agents working in this repository
-- `PLAN.md` — implementation roadmap and definition of done
-- `docs/` — focused architecture and integration notes
-
-## Planned MVP
-
-- Local ContextMesh service
-- Codex integration
-- Claude Code integration
-- Shared task and session state
-- Git-based file verification
-- Conflict/overlap warnings
-- MCP context access
-- CLI inspection tools
-
-## Technology
-
-- TypeScript and Node.js
-- Fastify local HTTP service
-- SQLite with Drizzle ORM and FTS5
-- Zod boundary validation
-- Git CLI repository evidence
-- MCP TypeScript SDK
-- Commander.js CLI
-- Pino structured logging
-- Vitest tests
-
-## Development
-
-Prerequisites:
-
-- Node.js 22 or newer
-- npm 10 or newer
-- Git on `PATH`
-
-Install dependencies and run the checks:
-
-```bash
-npm install
+```sh
+npm ci
 npm run typecheck
+npm run build
 npm test
-```
-
-Start the local service:
-
-```bash
 npm run dev
 ```
 
-The service binds to `127.0.0.1:4317` by default. The CLI entry point is
-available through `npm run cli -- <command>` while the package is being
-developed.
+Defaults: `127.0.0.1:4317`, `.contextmesh/contextmesh.db`. Startup runs versioned
+migrations, preserves existing `cm_*` data, and prevents a second service from
+owning the database. Configuration uses environment variables documented in
+`.env.example`; the application does not automatically load `.env` files.
 
-Initial inspection commands:
+In another terminal:
 
-```bash
-contextmesh status
-contextmesh sessions
-contextmesh conflicts
-contextmesh history
-contextmesh doctor
-```
-
-During local development, invoke the CLI through npm:
-
-```bash
+```sh
+npm run cli -- doctor
 npm run cli -- status
+npm run cli -- sessions --project my-project
+npm run cli -- conflicts --project my-project
+npm run cli -- context --project my-project --file src/auth.ts
+npm run cli -- history --project my-project --json
 ```
 
-The current CLI and MCP surfaces are foundation scaffolding. Persistent event
-and projection storage is active in the local service; storage-backed memory
-search, inspection commands, and complete host integrations are implemented in
-the planned vertical slices rather than assumed by the skeleton.
+Launch `npm run mcp` from an MCP-capable host while the service runs. Register a
+session before reporting tasks. Mutations require `requestId`; reuse it for an
+exact retry and use a new ID for new work.
 
-## Repository Layout
+## Rehearse the demo
+
+```sh
+npm run demo -- --two-simulated
+npm run demo -- --two-live
+```
+
+Two-live mode prints separate commands for Codex A and Codex B. Run them in
+two other terminals while the harness stays running. A implements a fixture;
+B retrieves its context, deliberately reports an overlapping initial scope,
+narrows to tests, and uses A's completion handoff. Eight checkpoints verify the
+workflow, test execution, restart retrieval and replay protection. On a host
+with restricted file execution, use `--two-live --operator-edit`: both agents
+are live, while the harness makes and labels the two fixture edits.
+
+The original rehearsal modes remain available:
+
+```sh
+npm run demo
+npm run demo -- --live
+```
+
+Default mode clearly labels both sessions as simulated while exercising real
+HTTP, stdio MCP, Git, CLI, SQLite, and restart recovery. Live mode prints a
+PowerShell command that starts Codex with the demo MCP connection. For a host
+that cannot edit files, use the explicit operator-edit variant:
+
+```sh
+npm run demo -- --live --operator-edit
+```
+
+The operator edit is labeled and never attributed to the agent. Demo modes use
+disposable fixtures/databases under `.contextmesh/demos/`; they never reset the
+developer's repository or database. See [the runbook](docs/demo.md).
+
+## Use Codex on your own project
+
+Keep `npm run dev` running, then prepare a session from the ContextMesh checkout:
+
+```sh
+npm run cli -- connect codex --project my-project --repo C:/path/to/project --task "Implement the API change"
+npm run cli -- connect codex --project my-project --repo C:/path/to/project --task "Add tests for the API change"
+```
+
+Run each printed launch command in its own terminal. Both use the same project
+ID and independent generated session IDs. The launcher handles lifecycle and
+startup context; the prompts guide meaningful MCP reporting. Add `--hooks` to
+opt in to documented lifecycle/tool hooks, subject to normal host trust and
+version support. Review the tasks and normal Codex permissions before running. See
+[Codex setup](docs/codex.md) for prerequisites and limitations.
+
+Claude connection files can be prepared without installing Claude:
+
+```sh
+npm run cli -- connect claude --project my-project --repo C:/path/to/project --task "Test the API change"
+```
+
+They remain disabled until a teammate prepares them with
+`--enable-experimental-claude`. See [Claude validation](docs/claude-validation.md).
+
+## Architecture and documentation
 
 ```text
-src/domain/           vendor-independent events and entities
-src/application/      coordination and state-processing services
-src/storage/          Drizzle schema, migrations, and SQLite boundaries
-src/transport/        Fastify HTTP and MCP interfaces
-src/adapters/         Claude Code, Codex, and common adapter contracts
-src/cli/              Commander entry point
-tests/                deterministic unit and integration tests
-docs/                 architecture and integration notes
+Live agent / simulated peer       Human CLI
+           |                         |
+      MCP stdio bridge               |
+           +-------- local API ------+
+                         |
+                 application services
+                    /           \
+             SQLite + FTS5     Git CLI
 ```
 
-## MVP Acceptance Slice
-
-The first vertical slice supports a mock session starting, reporting a task,
-declaring an expected file, and producing a deterministic overlap warning when
-another active task declares the same file. Later slices add Git evidence,
-durable memories, MCP transport, and real host adapters without changing the
-normalized core event contract.
-
-## Project Principles
-
-- Agents report meaning; Git reports repository evidence.
-- Durable memories are versioned and searchable, not silently overwritten.
-- External events are validated and processed idempotently where identities are
-  available.
-- Adapters remain isolated from vendor-independent coordination logic.
-- Context is compact, scoped, and budgeted rather than a full transcript dump.
-- Local services bind to loopback by default.
-
-## Contributing With Agents
-
-Read `AGENTS.md` and `PLAN.md` before making substantial changes. The root
-instructions define project-wide boundaries; scoped `AGENTS.md` files add rules
-for domain, storage, transport, adapters, tests, and documentation. Update
-tests and relevant documentation whenever a public schema, command, route, or
-adapter capability changes.
+- [Specification](ContextMesh_SPEC.md): product contracts and MVP scope.
+- [Plan](PLAN.md): execution stages and verification gates.
+- [Agent guidance](AGENTS.md): repository and scoped development rules.
+- [Architecture](docs/architecture.md), [persistence](docs/persistence.md),
+  [MCP](docs/mcp.md), [adapters](docs/adapters.md), [demo](docs/demo.md).
+- [Codex setup](docs/codex.md) and [MVP status](docs/mvp-status.md).

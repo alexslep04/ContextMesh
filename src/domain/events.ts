@@ -13,12 +13,15 @@ export const eventTypeSchema = z.enum([
   "blocker_resolved",
   "commit_created",
   "warning_created",
+  "progress_checkpoint",
+  "memory_revised",
+  "memory_deleted",
 ]);
 
 export const contextMeshEventSchema = z.object({
   eventId: z.string().min(1),
   sourceEventId: z.string().min(1).optional(),
-  source: z.enum(["mock", "claude_code", "codex", "mcp", "cli"]),
+  source: z.enum(["mock", "claude_code", "codex", "mcp", "cli", "http"]),
   type: eventTypeSchema,
   projectId: z.string().min(1),
   sessionId: z.string().min(1),

@@ -34,6 +34,7 @@ describe("SqliteEventPersistence", () => {
     const database = createDatabase(":memory:");
     const first = new EventProcessor(new SqliteEventPersistence(database.sqlite));
 
+    first.ingest(sessionStarted);
     first.ingest({
       ...sessionStarted,
       eventId: "task-started",
@@ -47,7 +48,7 @@ describe("SqliteEventPersistence", () => {
       sourceEventId: "task-completed",
       type: "task_completed",
       occurredAt: "2026-10-01T13:00:00.000Z",
-      payload: { taskId: "task-1" },
+      payload: { taskId: "task-1", summary: "Authentication implemented" },
     });
 
     const second = new EventProcessor(new SqliteEventPersistence(database.sqlite));
