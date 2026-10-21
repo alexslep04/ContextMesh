@@ -294,6 +294,7 @@ Initial event set:
 - `blocker_resolved`
 - `commit_created`
 - `warning_created`
+- `progress_checkpoint` (explicit durable progress report)
 
 Do not add event types casually. Reuse or extend the existing schema when possible.
 

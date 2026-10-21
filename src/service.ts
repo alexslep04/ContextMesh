@@ -1,21 +1,27 @@
+import { createRuntime } from "./runtime.js";
 import { loadConfig } from "./config.js";
-import { EventProcessor } from "./application/event-processor.js";
 import { createLogger } from "./infrastructure/logging/logger.js";
-import { createDatabase } from "./storage/client.js";
-import { SqliteEventPersistence } from "./storage/sqlite-event-persistence.js";
-import { createApp } from "./transport/http/server.js";
-
 const config = loadConfig();
 const logger = createLogger(config.logLevel);
-const database = createDatabase(config.databasePath);
-const processor = new EventProcessor(new SqliteEventPersistence(database.sqlite));
-const app = createApp({ processor });
-
+let runtime: ReturnType<typeof createRuntime> | undefined;
 try {
-  await app.listen({ host: config.host, port: config.port });
+  runtime = createRuntime(config);
+  await runtime.app.listen({ host: config.host, port: config.port });
   logger.info({ host: config.host, port: config.port }, "ContextMesh service started");
+  let closing = false;
+  process.on("message", message => {
+    if (message === "shutdown" && !closing) {
+      closing = true;
+      void runtime!.app.close().then(() => { if (process.connected) process.disconnect(); });
+    }
+  });
+  for (const signal of ["SIGINT", "SIGTERM"] as const) process.on(signal, () => {
+    if (closing) return;
+    closing = true;
+    void runtime!.app.close().catch(error => { logger.error({ err: error }, "Shutdown failed"); process.exitCode = 1; });
+  });
 } catch (error) {
   logger.error({ err: error }, "ContextMesh service failed to start");
-  database.sqlite.close();
+  await runtime?.app.close();
   process.exitCode = 1;
 }

@@ -1,3 +1,5 @@
+import type { Session, Task, Warning, Blocker, GitEvidence } from "../domain/entities.js";
+import type { MemoryVersion } from "../domain/memories.js";
 import { integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const projects = sqliteTable("cm_projects", {
@@ -7,6 +9,7 @@ export const projects = sqliteTable("cm_projects", {
 });
 
 export const sessions = sqliteTable("cm_sessions", {
+  details: text("details", { mode: "json" }).$type<Session>(),
   id: text("id").notNull(),
   projectId: text("project_id").notNull(),
   agentType: text("agent_type").notNull(),
@@ -19,6 +22,7 @@ export const sessions = sqliteTable("cm_sessions", {
 }));
 
 export const tasks = sqliteTable("cm_tasks", {
+  details: text("details", { mode: "json" }).$type<Task>(),
   id: text("id").notNull(),
   projectId: text("project_id").notNull(),
   sessionId: text("session_id").notNull(),
@@ -56,6 +60,7 @@ export const memories = sqliteTable("cm_memories", {
 });
 
 export const memoryVersions = sqliteTable("cm_memory_versions", {
+  details: text("details", { mode: "json" }).$type<MemoryVersion>(),
   id: text("id").primaryKey(),
   memoryId: text("memory_id").notNull(),
   version: integer("version").notNull(),
@@ -68,6 +73,7 @@ export const memoryVersions = sqliteTable("cm_memory_versions", {
 });
 
 export const warnings = sqliteTable("cm_warnings", {
+  details: text("details", { mode: "json" }).$type<Warning>(),
   id: text("id").primaryKey(),
   kind: text("kind").notNull(),
   projectId: text("project_id").notNull(),
@@ -75,4 +81,11 @@ export const warnings = sqliteTable("cm_warnings", {
   files: text("files", { mode: "json" }).$type<string[]>().notNull(),
   message: text("message").notNull(),
   createdAt: text("created_at").notNull(),
+});
+
+export const blockers = sqliteTable("cm_blockers", {
+  id: text("id").notNull(), projectId: text("project_id").notNull(), data: text("data", { mode: "json" }).$type<Blocker>().notNull(),
+}, table => ({ pk: primaryKey({ columns: [table.projectId, table.id] }) }));
+export const repositoryEvidence = sqliteTable("cm_repository_evidence", {
+  id: text("id").primaryKey(), projectId: text("project_id").notNull(), data: text("data", { mode: "json" }).$type<GitEvidence>().notNull(),
 });

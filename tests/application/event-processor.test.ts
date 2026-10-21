@@ -59,6 +59,8 @@ describe("EventProcessor", () => {
 
   it("keeps same task IDs isolated between projects", () => {
     const processor = new EventProcessor();
+    processor.ingest(event("session_started", "session-a", {}, "session-a-start", "project-a"));
+    processor.ingest(event("session_started", "session-b", {}, "session-b-start", "project-b"));
     const payload = { taskId: "shared-task-id", title: "Shared title", expectedFiles: [] };
 
     processor.ingest(event("task_started", "session-a", payload, "event-a", "project-a"));
@@ -69,6 +71,7 @@ describe("EventProcessor", () => {
 
   it("does not let an older event regress a completed task", () => {
     const processor = new EventProcessor();
+    processor.ingest(event("session_started", "session-a", {}));
     processor.ingest(event("task_started", "session-a", {
       taskId: "task-a",
       title: "Authentication",
@@ -81,7 +84,7 @@ describe("EventProcessor", () => {
         expectedFiles: [],
       }, "completion-event", "project-1", "2026-10-01T13:00:00.000Z"),
       type: "task_completed",
-      payload: { taskId: "task-a" },
+      payload: { taskId: "task-a", summary: "Authentication implemented" },
     });
 
     const delayed = processor.ingest(event("task_started", "session-a", {

@@ -414,6 +414,7 @@ blocker_resolved
 commit_created
 
 warning_created
+progress_checkpoint
 ```
 
 All incoming external events must be normalized before core processing.
@@ -1107,9 +1108,18 @@ Request bodies, query parameters, and tool inputs are validated with Zod.
 Errors use a consistent structured JSON shape and never expose stack traces or
 secrets.
 
-The current foundation implements only `/health`, `/v1/status`, and
-`POST /v1/events`. The remaining routes are target MVP contracts and must be
-added as storage-backed application services are implemented.
+The current demo slice implements health/status, events, context, sessions,
+warnings, memory list/history/export, plus `GET /v1/tasks`, `GET /v1/history`,
+`GET /v1/doctor`, and `POST /v1/repository/refresh`. Memory PATCH/DELETE now append
+versioned revisions/tombstones using project/session/request identity, an
+expectedVersionId and a reason. PATCH accepts changed content/rationale/files.
+Normal context/list/search exclude deleted and superseded versions; detail
+history and export retain them. GET `/v1/memories` accepts an optional bounded
+query. Semantic reports cannot resurrect a deleted memory ID.
+
+One running service owns coordination state and SQLite writes. MCP and CLI use
+its local application API. Transports never open the database or keep writable
+processor caches. Runtime migrations preserve the existing `cm_*` state.
 
 ## 42. MCP Contract
 
@@ -1132,15 +1142,26 @@ save_progress_checkpoint
 MCP must not expose raw database operations. The same schemas and semantics
 apply whether an operation arrives through MCP, HTTP, or a host adapter.
 
-The current foundation implements `get_project_context` and `report_task`
-against the in-memory processor. The remaining tools are target MVP contracts.
+All tools listed above are implemented against the shared service. Additional
+purposeful operations are `register_session`, `end_session`,
+`report_file_activity`, and `refresh_repository`. Mutations require project ID,
+session ID, and request ID. An identical retry reuses the request ID; reusing it
+with different content is an error. Agent type is explicit session metadata,
+independent of the MCP transport identity.
+
+The checkpoint tool emits `progress_checkpoint`, a meaningful semantic milestone
+that stores an immutable progress-memory version. Read context uses deterministic
+project/file relevance, current versions, provenance, and a serialized character
+budget with explicit truncation. This budget is not a model-token estimate.
 
 ## 43. Adapter Capability Contract
 
 Adapters must report their supported capabilities rather than pretending the
 hosts are equivalent. Claude Code may use documented session, tool, stop, and
-HTTP hook surfaces. Codex begins with explicit MCP reporting and context
-retrieval until an automatic lifecycle surface is verified.
+HTTP hook surfaces. Codex retains explicit MCP as the baseline. Its managed
+launcher owns startup/context/cleanup. Optional documented hooks are
+fixture-tested and require normal host support/trust. Claude integration is
+implemented and defaults disabled pending live acceptance.
 
 When ContextMesh is unavailable, adapter delivery failures are logged and
 reported diagnostically but must not block the host agent's work.
@@ -1155,3 +1176,76 @@ The repository uses these ownership boundaries:
    rules.
 4. Code and tests define implemented behavior.
 5. Important architectural changes update the specification deliberately.
+
+## 45. October 2026 Demo Implementation
+
+The initial demo slice supports one live MCP-connected agent and a clearly labeled
+simulated peer. Its harness uses public interfaces, an isolated fixture Git
+repository/database, real HTTP and stdio MCP processes, a real service restart,
+replay checks, and CLI verification. It preserves structured reports and service
+diagnostics, not conversations or credentials.
+
+Git evidence records repository/worktree identity, branch, HEAD, changed paths,
+and observation time. Agent file reports remain claims. Dirty files in a shared
+worktree alone cannot establish session authorship or confirmed overlap. The
+current warning rule emits explained expected-file overlap between active tasks
+of distinct, non-ended sessions, and removes it when work completes or a session
+ends. A session ending does not complete its task.
+
+The live demo's normal mode asks the agent to edit the fixture. If the host
+restricts file execution, an explicit operator-edit mode labels the harness's
+fixture change separately; the live agent still performs semantic reporting,
+context retrieval, decision recording, and completion. This mode does not claim
+agent file authorship. Automatic vendor hooks/context injection and a second live
+vendor are not claimed by this slice. See `docs/demo.md` for the runbook.
+
+## 46. Two-Codex Delivery Milestone
+
+The next implemented milestone adds two independent live Codex sessions through
+the existing vendor-neutral MCP contracts. Claude remains a full MVP target;
+this milestone defers its live validation rather than removing vendor support
+from the product goal.
+
+The two-session demo verifies startup context, real Git evidence, intentional
+expected-file overlap, an agent-submitted task update clearing that warning, a
+dependency blocker/resolution, decision rationale, both completion handoffs and
+session endings. A fresh MCP verifier retrieves both handoffs after an actual
+service restart. Structured provenance receipts demonstrate returned context;
+the harness independently runs fixture tests and checks the implementation
+contract. Deterministic peers and explicit operator-edit mode remain labeled
+alternatives; operator edits are never attributed to the agents.
+
+The CLI can prepare Codex connections for ordinary Git projects with a shared
+project ID and independent session IDs. This setup generates scripts and an
+explicit reporting prompt, uses existing login and leaves global host config
+alone. It does not imply automatic lifecycle hooks, crash recovery, offline
+delivery queuing or model compliance. ContextMesh informs and warns; the demo
+instructions and developer supply tasks. The core does not orchestrate agents.
+
+## 47. MVP Completion Work and Verification Gates
+
+Managed Codex connections now register sessions, supply bounded startup context,
+refresh Git and end sessions after CLI exit or a handled interruption, without
+completing unfinished work. Connections are single-use. Explicit CLI session
+recovery handles a forced kill or unavailable-service cleanup failure.
+
+Documented Codex/Claude hook adapters normalize main-session lifecycle and
+successful supported file-tool reports. A common advisory runner retrieves
+context at startup/prompt submission, refreshes Git after relevant tool activity
+and Stop, and ignores MCP callbacks to avoid loops. Stop is neither task
+completion nor session termination. Hook input is bounded, transcripts are never
+read, and raw tool input/output is not stored. Missing signals fall back to
+explicit reporting and repository evidence.
+
+Claude preparation requires no installed host. It generates disabled
+configuration by default; explicit experimental activation is required to
+launch. Fixture coverage demonstrates normalization, duplicate delivery, resume,
+failure behavior and public interfaces. Live Claude, mixed-vendor behavior,
+host hook trust/shell compatibility remain external verification gates. Native
+two-Codex execution passed on this machine after the launcher was corrected to
+preserve normal Windows user configuration rather than ignore sandbox setup.
+
+Memory edits/deletions are meaningful normalized events. A mismatched current
+version returns a conflict; exact retries remain idempotent. Deletion appends a
+tombstone, preserves provenance and removes the current version from FTS/context
+atomically. The existing `cm_*` schema remains the runtime authority.
