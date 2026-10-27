@@ -5,7 +5,7 @@ const execute = promisify(execFile);
 
 export async function verifyFixture(repositoryPath: string): Promise<string> {
   const options = { cwd: repositoryPath, windowsHide: true, timeout: 10000 };
-  const result = await execute(process.execPath, ["--experimental-strip-types", "--test", "tests/auth.test.mjs"], options);
+  const result = await execute(process.execPath, ["--experimental-strip-types", "--test", "--test-reporter=tap", "tests/auth.test.mjs"], options);
   assert.match(result.stdout, /# fail 0/);
   assert(Number(result.stdout.match(/# tests (\d+)/)?.[1]) >= 3, "Expected at least three actual fixture tests");
   assert.match(result.stdout, /# skipped 0/);
