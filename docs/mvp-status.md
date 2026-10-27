@@ -1,65 +1,44 @@
-# MVP status: October 20, 2026
+# Codex-only MVP status: October 27, 2026
 
-The shared core, managed Codex lifecycle, memory editing/deletion/search and
-opt-in Claude integration are implemented. Claude remains disabled until a
-teammate can run live acceptance. Native two-Codex coding now passes on this host
-after fixing configuration preservation. Claude/mixed-vendor and optional live
-hook compatibility checks remain verification gates.
+The demo MVP supports two independent Codex sessions. Claude Code and OpenCode
+are stretch goals, not release gates. Existing experimental Claude support
+remains isolated and disabled. The teammate SQLite integration is already
+merged into main at 9c49566; older notes about an unmerged integration are obsolete.
 
-## Section 3 scope assessment
+## Implemented and verified
 
-| Requirement | Current implementation and evidence |
-| --- | --- |
-| Local operation | Implemented: loopback Fastify service and local SQLite. |
-| Codex and Claude | Codex MCP and managed lifecycle exercised live. Claude adapter, hooks, MCP configuration and launcher implemented, fixture-tested, disabled by default; live acceptance pending. |
-| Multiple active sessions | Implemented: independent IDs and MCP connections sharing one service. |
-| Session start/end | Explicit tools, managed Codex startup/cleanup, documented opt-in hooks and CLI recovery. Forced kills/outages can need explicit recovery. |
-| Report understood task | Implemented and exercised through live MCP. |
-| Update active task | Implemented; B narrowed to tests and cleared its warning. |
-| Expected files | Implemented with validated repository-relative paths. |
-| Observe file activity through hooks | Implemented documented file-tool normalization and automatic Git refresh; fixture-tested, live host/trust verification pending. Claims and Git evidence remain separate. |
-| Verify repository state with Git | Implemented: worktree, branch, HEAD and changed paths. Native two-Codex run pair-t1QQA9 verified agent-authored implementation/tests and all eight checks. |
-| Persist structured state | Implemented with migrations, Drizzle transactions, restart and replay checks. |
-| Decisions and rationale | Implemented immutable versions, provenance and current context. |
-| Blockers and resolutions | Implemented and used by B to wait for A's handoff. |
-| Completion and handoff | Implemented for both sessions; B retrieved A's handoff and both survive restart. |
-| Obvious overlap | Expected-file warnings implemented. Shared dirty files alone cannot prove session authorship; richer evidence-backed overlap remains limited. |
-| Relevant context | Implemented deterministic project/file relevance, provenance, budgets and truncation. |
-| MCP | Implemented shared semantic tools and context reads. |
-| CLI inspection | Implemented status, sessions, tasks, conflicts, context, memories, history, doctor and refresh; new Codex connection preparation. |
+- Loopback Fastify service with one SQLite owner, migrations/Drizzle, persistent
+  events, transactional projections and immutable memory versions/FTS search.
+- Validated session/task lifecycle, expected files, scope changes, project and
+  ownership boundaries, meaningful progress, decisions/rationale, blockers and
+  durable completion handoffs.
+- Git worktree/branch/HEAD/change evidence, distinct from agent claims.
+- Explained expected-file overlap cleared by scope/lifecycle changes.
+- Shared HTTP/MCP/CLI services, bounded context/provenance, duplicate protection,
+  version-aware memory edits/deletions and inspectable history/export.
+- Managed ordinary-project Codex startup/context/cleanup and explicit recovery.
+- Playable Snake demo: A implements rules; B reads A's context, receives overlap,
+  narrows to browser/tests, consumes the handoff and completes the game.
+- Independent game tests and browser-control smoke checks, actual service
+  restart, fresh MCP handoff retrieval, replay and CLI consistency checks.
+- One-command automatic live launch, optional separate visible terminals,
+  Windows desktop-bundled CLI discovery, local game preview and saved evidence.
 
-## Additional target contracts
+A real native two-Codex Snake run, pair-PhypjH, passed all eight checkpoints in
+184 seconds with operatorEdit:false; compiled run pair-0FlJy1 repeated all
+eight checks in 213 seconds. All 62 tests pass. The browser was exercised for Start,
+keyboard steering, score, game-over, Pause and Restart. Automated source/compiled
+rehearsals pass. See verification.md for exact final checks and further runs.
 
-- Memory PATCH/DELETE, optimistic version checks, immutable revisions/tombstones,
-  history/export and HTTP/MCP/CLI current-only retrieval are implemented/tested.
-- FTS5 literal-word search is exposed through HTTP/MCP/CLI, project scoped,
-  excludes deleted/superseded versions and survives restart.
-- Worktree identity is observed; ContextMesh does not manage worktrees or infer
-  per-session authorship from a shared dirty checkout.
-- Managed Codex startup injects bounded shared context and cleans up after exit.
-  Optional Codex hooks and Claude hooks are fixture-tested. Meaningful semantic
-  reporting still depends on model tool calls. Offline delivery is not buffered;
-  forced kills/outages have an explicit CLI recovery path.
-- Generated Codex scripts work for ordinary Git repositories. Broader install
-  and CLI-version compatibility need verification outside this machine.
+## Limits
 
-## Release gates
+Meaningful reporting depends on the models following their instructions.
+Forced kills/outages can require explicit session cleanup; offline reports are
+not queued. Git dirtiness does not prove per-session authorship, and the warning
+is expected-file overlap rather than semantic conflict detection. Optional host
+hooks are fixture-tested and not required by the explicit-MCP demo baseline.
+Live model runtime is variable; retain a clearly labeled saved game/rehearsal
+as presentation backup. No dashboard/cloud/orchestration work is needed.
 
-The two-Codex coordination gate passed with operator edits, and a real managed
-Codex session verified automatic registration/startup context/cleanup. Native
-attempt `pair-nsqdRe` correctly stopped on a host-policy blocker with no edits.
-The launcher configuration bug is now fixed; native run `pair-t1QQA9` passed
-all eight checks with actual agent edits and independent fixture tests.
-Complete [Claude/mixed-vendor acceptance](claude-validation.md). Verify native
-hook trust/shell/version behavior. Teammate database work has been reconciled
-with the existing schema/migration runner on `integrate/teammate-sqlite`. The
-pre-integration code is saved as `5287aef`; final integration review/commit is
-pending at the user's request.
-
-Remaining breadth: confirmed per-session file authorship is intentionally not
-inferred from shared dirtiness; broader host compatibility and optional richer
-retrieval can follow evidence from real usage. No dashboard/cloud/orchestration
-work is needed for this release.
-
-See [verification](verification.md), [demo instructions](demo.md), and the
-sequential priorities in [PLAN.md](../PLAN.md).
+See [the runbook](demo.md), [Codex setup](codex.md), and
+[verification](verification.md).

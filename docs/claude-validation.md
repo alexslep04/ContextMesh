@@ -1,4 +1,7 @@
-# Claude integration: implemented, disabled pending live validation
+# Claude integration: stretch goal, disabled pending live validation
+
+Claude Code and OpenCode are outside the Codex-only MVP. This checklist is
+retained for future integration work and does not gate the Snake demo.
 
 Claude is not needed to build or run ContextMesh's shared core. The repository
 includes Claude hook normalization, advisory delivery, session/context/Git
@@ -79,4 +82,4 @@ completes its task. Delivery during outages is not queued.
 
 Do not enable Claude by default or call mixed-vendor support verified until
 this checklist passes. Fix host/version issues, rerun fixtures and repeat the
-affected live steps before claiming the complete specified MVP.
+affected live steps before claiming verified Claude support.

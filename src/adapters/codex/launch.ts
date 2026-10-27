@@ -60,6 +60,18 @@ export function resolveCodexLaunch(options: DiscoveryOptions = {}): CodexLaunch 
   if (platform === "win32") {
     const npm = launchFile(join(env.APPDATA ?? join(home, "AppData", "Roaming"), "npm", "node_modules", "@openai", "codex", "bin", "codex.js"), "npm installation");
     if (npm) return npm;
+    // The desktop app injects its bundled CLI into its own PATH. An ordinary
+    // PowerShell window may not inherit that PATH; use the same installed CLI.
+    const desktopBin = join(env.LOCALAPPDATA ?? join(home, "AppData", "Local"), "OpenAI", "Codex", "bin");
+    let installations: string[] = [];
+    try {
+      installations = readdirSync(desktopBin, { withFileTypes: true }).filter(entry => entry.isDirectory()).map(entry => join(desktopBin, entry.name));
+      installations.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs || b.localeCompare(a));
+    } catch { /* Desktop installation is optional; continue with other hosts. */ }
+    for (const directory of [desktopBin, ...installations]) {
+      const desktop = launchFile(join(directory, binary), "Codex desktop app");
+      if (desktop) return desktop;
+    }
   }
 
   const platformDirectory = ({ win32: "windows", linux: "linux", darwin: "macos" } as Partial<Record<NodeJS.Platform, string>>)[platform];
@@ -78,7 +90,7 @@ export function resolveCodexLaunch(options: DiscoveryOptions = {}): CodexLaunch 
       }
     }
   }
-  throw new Error("Codex was not found on PATH, in its standard installation locations, or in the VS Code extension. Set CONTEXTMESH_CODEX to its full executable path or install the Codex CLI. See docs/demo.md.");
+  throw new Error("Codex was not found on PATH, in its standard/desktop installation locations, or in the VS Code extension. Set CONTEXTMESH_CODEX to its full executable path or install the Codex CLI. See docs/codex.md.");
 }
 
 export function codexLauncherSource(launch: CodexLaunch, args?: string[]): string {

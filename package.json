@@ -13,7 +13,9 @@
     "mcp": "tsx src/mcp.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "demo": "tsx src/demo/index.ts"
+    "demo": "tsx src/demo/index.ts",
+    "demo:live": "tsx src/demo/index.ts --two-live --launch-agents --serve",
+    "demo:play": "tsx src/demo/play.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.5",

@@ -4,7 +4,7 @@
 
 This repository contains **ContextMesh**, a local coordination layer for developers running multiple AI coding agents on the same project.
 
-ContextMesh is intended to help agents such as **Codex** and **Claude Code** share relevant project context so they can:
+ContextMesh helps **Codex** sessions share relevant project context. **Claude Code** and **OpenCode** are stretch goals. Connected sessions can:
 
 - understand what other agents are currently working on,
 - see what work was recently completed,
@@ -46,7 +46,7 @@ Primary components:
 - Git CLI integration
 - MCP
 - Codex plugin/hooks
-- Claude Code plugin/hooks
+- Claude Code plugin/hooks (stretch goal)
 - Pino
 - Vitest
 - CLI interface
@@ -315,7 +315,7 @@ Recommended order:
 7. Generate relevant context from stored state.
 8. Add CLI inspection commands.
 9. Integrate Codex.
-10. Integrate Claude Code.
+10. Defer Claude Code/OpenCode integration until after the Codex MVP.
 11. Add MCP tools/resources.
 12. Improve installation and packaging.
 
@@ -401,7 +401,7 @@ Its responsibilities:
 
 Do not duplicate ContextMesh's database or coordination logic inside the plugin.
 
-### Claude Code
+### Claude Code (stretch goal)
 
 Follow the same rule.
 
@@ -472,7 +472,7 @@ The following are **not MVP requirements**:
 - a React web dashboard,
 - a polished VS Code extension,
 - IDE-specific UI,
-- additional agents beyond Codex and Claude,
+- Claude Code, OpenCode, and additional agents beyond Codex,
 - automatic worktree management,
 - autonomous task assignment,
 - autonomous conflict resolution,

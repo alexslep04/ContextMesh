@@ -36,6 +36,16 @@ describe("live demo Codex discovery and launch", () => {
     } finally { temp.remove(); }
   });
 
+  it("finds the desktop-bundled CLI from an external terminal with no Codex on PATH", () => {
+    const temp = temporaryDirectory();
+    try {
+      const local = join(temp.path, "AppData", "Local");
+      const expected = file(join(local, "OpenAI", "Codex", "bin", "installed-build", "codex.exe"));
+      const found = resolveCodexLaunch({ env: { PATH: "", LOCALAPPDATA: local }, home: temp.path, platform: "win32" });
+      expect(found).toMatchObject({ command: expected, source: "Codex desktop app" });
+    } finally { temp.remove(); }
+  });
+
   it("supports npm Node entry points without trying to spawn a Windows cmd shim", () => {
     const temp = temporaryDirectory();
     try {

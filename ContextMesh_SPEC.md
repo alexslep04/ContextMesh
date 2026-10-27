@@ -4,7 +4,8 @@
 
 **ContextMesh** is a local coordination layer for developers running multiple AI coding sessions on the same software project.
 
-The MVP supports **Codex** and **Claude Code**.
+The MVP supports multiple independent **Codex** sessions. **Claude Code** and
+**OpenCode** integrations are stretch goals outside the main MVP.
 
 Each coding agent normally has its own context window and may not know what another active agent is doing. This can lead to:
 
@@ -44,7 +45,7 @@ ContextMesh provides **awareness and coordination**, not autonomous orchestratio
 The MVP will:
 
 1. Run locally on one developer's computer.
-2. Support Codex and Claude Code.
+2. Support multiple independent Codex sessions; Claude Code and OpenCode are stretch goals.
 3. Allow multiple active sessions for the same project.
 4. Register session start/end events.
 5. Allow an agent to report a task once it understands the work.
@@ -75,7 +76,7 @@ The MVP will not require:
 - autonomous task assignment,
 - autonomous conflict resolution,
 - automatic worktree creation or management,
-- support for many agent vendors,
+- Claude Code, OpenCode, or other additional agent vendors,
 - full terminal transcript capture,
 - full conversation storage,
 - a polished IDE extension.
@@ -94,7 +95,7 @@ Developer
 ├── Codex Session A
 │   └── Implement authentication
 │
-├── Claude Session B
+├── Codex Session B
 │   └── Add authentication tests
 │
 └── Codex Session C
@@ -112,7 +113,7 @@ All sessions can communicate with the same local ContextMesh instance.
 
         ┌───────────────────────────────────┐
         │                                   │
-        │  Codex               Claude Code │
+        │  Codex A               Codex B   │
         │    │                      │       │
         │  Plugin / Hooks      Plugin / Hooks
         │    │                      │       │
@@ -165,7 +166,7 @@ All sessions can communicate with the same local ContextMesh instance.
 
 - Model Context Protocol (MCP)
 - Codex plugin/hooks
-- Claude Code plugin/hooks
+- Claude Code/OpenCode adapters (stretch goals)
 
 ### Logging and Testing
 
@@ -430,9 +431,9 @@ Agent-specific raw events should not leak deeply into the core.
 Example:
 
 ```text
-Claude PostToolUse event
+Codex supported hook event
         ↓
-Claude Adapter
+Codex Adapter
         ↓
 Normalized ContextMesh Event
         ↓
@@ -449,7 +450,7 @@ Derived project/session state
 Conflict / relevance checks
 ```
 
-Codex should follow the same pattern.
+Future adapters follow the same normalized contracts.
 
 ---
 
@@ -589,7 +590,7 @@ Example:
 ContextMesh Project Context
 
 Active work:
-- Claude session B is implementing authentication tests.
+- Codex session B is implementing authentication tests.
 
 Recently completed:
 - Codex session A completed backend authentication.
@@ -818,7 +819,7 @@ Keep Codex-specific logic isolated inside its adapter/plugin layer.
 
 ---
 
-## 31. Claude Code Integration
+## 31. Claude Code Integration (Stretch Goal)
 
 The Claude Code integration should provide equivalent functionality:
 
@@ -835,49 +836,29 @@ Claude-specific formats should not alter the core data model unless there is a g
 
 ## 32. MVP Acceptance Scenario
 
-The system should be able to demonstrate this end-to-end workflow:
+The demonstration builds a playable Snake game in a disposable Git repository,
+using two independent Codex sessions and one local ContextMesh service:
 
-```text
-1. ContextMesh starts locally.
+1. A registers, retrieves context, reports the engine task and implements
+   `snake.js`. Git independently verifies the change.
+2. B registers and retrieves A's actual active task and Git evidence.
+3. B reports browser/test work with an intentionally overlapping `snake.js`
+   scope. Both sessions acknowledge the explained warning.
+4. B updates scope to `index.html`, `app.js`, `tests/snake.test.mjs`; the warning
+   clears. B records a dependency blocker.
+5. A records its pure-engine interface decision, rationale and completion
+   handoff. B retrieves that actual handoff and resolves its blocker.
+6. B builds the browser game and tests using the engine; both tasks complete
+   and both sessions end.
+7. The harness independently verifies rules, tests and browser controls,
+   restarts the real service, retrieves both handoffs through a fresh MCP
+   connection, and checks replay protection and CLI consistency.
+8. The presenter opens a loopback preview and plays the game.
 
-2. Codex Session A connects.
-
-3. Session A reports:
-   "Implement authentication."
-
-4. ContextMesh stores the task.
-
-5. Session A reports/uses auth.ts.
-
-6. Git verifies that auth.ts changed.
-
-7. Claude Session B connects.
-
-8. Claude receives context:
-   "Codex A is implementing authentication
-    and has modified auth.ts."
-
-9. Claude reports:
-   "Implement password reset."
-   Expected file: auth.ts.
-
-10. ContextMesh detects overlap.
-
-11. Claude receives a warning.
-
-12. Codex completes authentication and reports:
-    summary,
-    decisions,
-    next steps.
-
-13. A later session starts.
-
-14. The later session receives the relevant
-    completed-work context and can continue
-    without the developer manually explaining it.
-```
-
-If this scenario works reliably, the core MVP concept is demonstrated.
+Developer demo prompts introduce tasks and overlap. The service never assigns
+tasks or blocks edits. Simulation and operator edits are explicitly labeled
+alternatives, not evidence of agent-authored code. The post-restart reader is
+a deterministic verifier, not a third live model.
 
 ---
 
@@ -910,8 +891,8 @@ Use mock sessions first.
 Then validate with:
 
 1. Codex + ContextMesh
-2. Claude + ContextMesh
-3. Codex + Claude simultaneously
+2. Two independent Codex sessions simultaneously
+3. Claude/OpenCode integration only as future stretch validation
 
 ---
 
@@ -973,9 +954,10 @@ Then validate with:
 - event normalization,
 - context retrieval.
 
-### Phase 8 — Claude Code
+### Phase 8 — Demo hardening
 
-- equivalent Claude adapter/plugin.
+- two-Codex live acceptance, playable Snake fixture, installation and rehearsal.
+- Claude Code/OpenCode adapter work is deferred beyond MVP.
 
 ### Phase 9 — Hardening
 
@@ -991,6 +973,8 @@ Then validate with:
 ## 35. Stretch Goals
 
 ### High-priority stretch goals
+
+- Claude Code and OpenCode support,
 
 - easier installation and setup,
 - one-command initialization,
@@ -1202,9 +1186,8 @@ vendor are not claimed by this slice. See `docs/demo.md` for the runbook.
 ## 46. Two-Codex Delivery Milestone
 
 The next implemented milestone adds two independent live Codex sessions through
-the existing vendor-neutral MCP contracts. Claude remains a full MVP target;
-this milestone defers its live validation rather than removing vendor support
-from the product goal.
+the existing vendor-neutral MCP contracts. The current MVP is Codex-only;
+Claude Code and OpenCode support are stretch goals.
 
 The two-session demo verifies startup context, real Git evidence, intentional
 expected-file overlap, an agent-submitted task update clearing that warning, a
@@ -1240,8 +1223,8 @@ explicit reporting and repository evidence.
 Claude preparation requires no installed host. It generates disabled
 configuration by default; explicit experimental activation is required to
 launch. Fixture coverage demonstrates normalization, duplicate delivery, resume,
-failure behavior and public interfaces. Live Claude, mixed-vendor behavior,
-host hook trust/shell compatibility remain external verification gates. Native
+failure behavior and public interfaces. Live Claude and mixed-vendor behavior are stretch validation. Optional native
+hook trust/shell compatibility is not required by the explicit-MCP MVP baseline. Native
 two-Codex execution passed on this machine after the launcher was corrected to
 preserve normal Windows user configuration rather than ignore sandbox setup.
 
@@ -1249,3 +1232,25 @@ Memory edits/deletions are meaningful normalized events. A mismatched current
 version returns a conflict; exact retries remain idempotent. Deletion appends a
 tombstone, preserves provenance and removes the current version from FTS/context
 atomically. The existing `cm_*` schema remains the runtime authority.
+
+## 48. Codex-only Snake Demo MVP (October 27, 2026)
+
+This scope supersedes earlier multi-vendor delivery plans and historical October
+20-22 demo notes. Multiple Codex sessions are the main MVP. Claude Code and
+OpenCode are stretch goals; existing experimental Claude code remains isolated
+and disabled by default. Optional hooks do not gate the explicit MCP baseline
+with managed session lifecycle and Git refresh.
+
+The Snake fixture uses browser ES modules without dependencies or a build step.
+A owns pure game rules; B consumes its handoff to build controls and tests.
+One-command live launching is a convenience in the developer-selected demo
+harness, not autonomous orchestration in the ContextMesh service. The preview
+serves only game assets on loopback. Normal live runs never inject completed
+game code; simulation/operator modes label who writes every file.
+
+Acceptance requires typecheck/build, deterministic tests, source and compiled
+Snake rehearsal, native two-Codex coding, independent game/browser verification,
+restart retrieval, replay protection and a presenter runbook. Live execution
+time depends on model latency and host permissions. No cloud service, dashboard,
+task assignment, worktree management or transcript collection is added. Shared
+Git dirtiness does not establish confirmed session authorship.

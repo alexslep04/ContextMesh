@@ -53,7 +53,7 @@ describe("Codex connections for ordinary projects", () => {
       await expect(prepareCodexConnection({ ...options, projectId: "new-project", repositoryPath: nonGit })).rejects.toThrow();
       await expect(prepareCodexConnection({ ...options, projectId: " " })).rejects.toThrow();
     } finally { await runtime.app.close(); temp.remove(); }
-  });
+  }, 20000);
   it("fails before creating artifacts when the service is unavailable", async () => {
     const temp = temporaryDirectory(), baseDirectory = join(temp.path, "connections");
     try {

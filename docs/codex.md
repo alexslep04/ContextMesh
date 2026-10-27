@@ -1,97 +1,99 @@
-# Codex connections
+# Codex CLI and ContextMesh setup
 
-ContextMesh coordinates sessions independently of vendor. Two Codex sessions
-can share one project just as Codex and Claude eventually will. Claude remains
-in the full MVP goal; the current delivery milestone prioritizes two Codex
-sessions connected through explicit MCP reporting.
+The MVP supports multiple independent Codex sessions. Claude Code and OpenCode
+are stretch goals. You may keep using the Codex desktop app for normal work;
+the repeatable demo uses two separate CLI processes with MCP connections.
+
+## Check before installing
+
+In PowerShell:
+
+```powershell
+codex --version
+codex login status
+```
+
+If those work and report a ChatGPT login, skip installation. On the development
+machine on October 27, 2026 they returned `0.164.0-alpha.11.1` and `Logged in
+using ChatGPT`. Your external terminal's PATH can differ from the app's PATH.
+
+For a separate CLI installation, the official npm method is:
+
+```powershell
+npm install -g @openai/codex
+codex
+```
+
+Choose Sign in with ChatGPT if prompted. You can explicitly run `codex login`,
+then `codex login status` to check. If PowerShell blocks npm's script shim, use
+`npm.cmd install -g @openai/codex`; do not weaken machine execution policy.
+Open a new terminal if PATH changed. In an ordinary project, running `codex`
+starts the interactive CLI; describe the work you want done. The demo instead
+uses `codex exec` with prepared tasks so you do not type reports yourself.
+
+Official sources: [CLI installation and sign-in](https://learn.chatgpt.com/docs/codex/cli),
+[OpenAI CLI README (npm installation)](https://github.com/openai/codex#quickstart),
+[non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode).
+
+## Run the demo
+
+Requires Node 22.18+, Git and installed ContextMesh dependencies:
+
+```powershell
+npm ci
+npm run demo:live
+```
+
+This validates login, starts its own service, runs two real agents and then
+prints the playable Snake URL. Open that URL. One terminal is sufficient; use
+`npm run demo -- --two-live --serve` for separate visible A/B terminals instead.
+See [the presentation runbook](demo.md).
+
+The resolver checks PATH, standard standalone/npm locations, the Windows
+desktop app's bundled CLI and VS Code's bundled CLI. This lets the demo use
+the installed desktop CLI even when your external terminal lacks codex on PATH. Generated scripts use absolute executable paths so another terminal
+does not need the same PATH. For a custom installation:
+
+```powershell
+$env:CONTEXTMESH_CODEX = 'C:\full\path\to\codex.exe'
+```
+
+An absolute installed npm `codex.js` entry point also works. Generated
+`check-login.ps1` checks the exact resolved executable. Do not commit credentials
+or change global config to make the demo run. Normal sandbox/trust and account
+usage apply. Unknown CLI flags or organization policy can require resolving
+host compatibility first; no permissions bypass is provided.
 
 ## Ordinary project setup
 
-Requires Node 22.18+, Git, installed dependencies and a logged-in Codex CLI with
-`exec`, inline MCP configuration and `--ephemeral`.
-The local verification uses CLI `0.162.0-alpha.17.2`. The launcher discovers
-PATH, standard installations or the VS Code-bundled binary. Override with an
-absolute `CONTEXTMESH_CODEX` path if necessary.
-
-Start the ContextMesh service in one terminal:
-
-```powershell
-npm run dev
-```
-
-From the ContextMesh checkout, prepare two sessions against the actual Git
-repository you want to work on:
+Start `npm run dev` in one terminal. Prepare two connections from this checkout:
 
 ```powershell
 npm run cli -- connect codex --project my-project --repo 'C:\path\to\project' --task 'Implement the API change'
-npm run cli -- connect codex --project my-project --repo 'C:\path\to\project' --task 'Test the API change'
+npm run cli -- connect codex --project my-project --repo 'C:\path\to\project' --task 'Add tests for the API change'
 ```
 
-Run each printed PowerShell command in a separate terminal. Alternatively run
-the printed absolute `.mjs` path with Node. Use the same project ID for peers;
-omit `--session` for a unique generated ID, or supply a new explicit value for
-each session. Configuration uses the same `CONTEXTMESH_HOST/PORT` as the service
-and must point to loopback. `--json` returns script and connection details.
+Run each printed launch command in its own terminal. Use the same project ID
+for peers and distinct generated session IDs. Preparation checks reachability,
+Git identity and duplicate sessions; it only writes ignored connection artifacts.
+The managed launcher registers, refreshes Git, injects bounded startup context
+and ends the session after exit. Semantic reports use MCP. Unfinished tasks stay
+unfinished. Connections are single-use; prepare a new one for another session.
+Native launches preserve normal user configuration, including Windows sandbox
+setup. Demo/connection launchers use workspace-write, ephemeral execution and no
+approval prompts, so denied operations fail rather than waiting on a hidden
+prompt. They never disable sandboxing or bypass managed policy.
 
-Preparation checks service reachability, Git repository identity and already
-registered session IDs. It creates only ignored connection artifacts under
-`.contextmesh/connections/`, without registering a session, editing project
-files, writing global Codex config or changing credentials. The generated
-`check-login.ps1` checks the resolved CLI; `codex-cli.mjs login` can be run with
-Node if that installation needs authentication.
+## Limits and optional hooks
 
-The managed launcher registers the session, refreshes Git and retrieves bounded
-startup context before starting Codex. The launch prompt asks Codex to report its
-task and expected files, inspect warnings, update scope when useful, report
-decisions/blockers and finish with a handoff. The launcher refreshes Git and ends
-the session after the CLI exits, including failure or a handled interruption;
-it never completes unfinished work. Each generated connection is single-use;
-prepare another for a new session. It uses
-the workspace-write sandbox with no approval prompts, an ephemeral session,
-and an explicit ContextMesh MCP configuration. Existing authentication is used;
-native mode preserves user Codex configuration, including Windows sandbox setup;
-the explicit read-only operator demo still ignores user configuration.
-Unsupported CLI flags or
-organization tool restrictions can prevent execution. The launcher propagates
-the CLI exit status; it never disables sandboxing or bypasses host policy.
-
-## Limits
-
-- Meaningful task/decision/completion reporting remains model tool calls guided
-  by instructions. Startup context and launcher session cleanup are automatic.
-- A forced process kill or a service outage can prevent cleanup. Recover an
-  affected session explicitly; its unfinished task remains unfinished:
-
-  ```powershell
-  npm run cli -- end-session --project my-project --session '<id>' --reason 'Terminal was closed'
-  ```
-- MCP errors are bounded and diagnostic. After setup, the instructions tell
-  the agent to continue ordinary work if ContextMesh becomes unavailable.
-  Coordination updates made while offline are not durably queued.
-- A dirty shared worktree proves repository changes, not which session made
-  each change. No file locking, task assignment or autonomous conflict resolution
-  is performed. Developers choose the tasks and whether to share a worktree.
-- Run against a disposable fixture first if the host's file execution is
-  uncertain. The demo's operator-edit option is intentionally fixture-only;
-  it is not offered for ordinary projects.
-
-The executable flow uses Codex's documented
-[non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode) and
-[MCP configuration](https://learn.chatgpt.com/docs/extend/mcp?surface=cli).
-
-## Optional hooks
-
-Add `--hooks` to `connect codex` to generate hook definitions and pass them for
-this invocation. The shared hook runner handles SessionStart/SessionEnd, refreshes
-Git after supported tool activity and Stop, and supplies context at SessionStart
-and UserPromptSubmit. The integration uses the same launcher session ID, so it
-does not create a duplicate session. Stop never completes a task or ends a session.
-It ignores MCP tool callbacks to avoid recursive refreshes and never reads a
-transcript. File-tool reports are claims; repository evidence stays separate.
-
-The command hook requires Node on PATH. Hook support and normal user trust are
-required by the installed host. Review/trust hooks using its normal workflow;
-the launcher never bypasses trust or organization policy. Unsupported or skipped
-hooks leave managed startup/cleanup and explicit MCP as the fallback. Hook
-contracts are fixture-tested; live hook execution on this host is not claimed.
-See [official hook documentation](https://learn.chatgpt.com/docs/hooks).
+- Meaningful reporting is model tool use guided by instructions. Startup/context
+  and managed ordinary-project cleanup are automatic.
+- A forced kill or outage may require recovery:
+  `npm run cli -- end-session --project my-project --session '<id>' --reason 'Terminal closed'`.
+  This does not complete its task. Offline updates are not queued.
+- Shared dirty files prove repository changes, not individual session authorship.
+- `connect codex --hooks` opts into host lifecycle/tool hooks and normal trust
+  requirements. Unsupported/skipped hooks fall back to managed lifecycle and
+  explicit MCP/Git. Native hooks are outside the demo acceptance baseline.
+- Optional hook runners ignore MCP callbacks and never read transcripts or
+  treat Stop as task completion. See [adapter details](adapters.md).

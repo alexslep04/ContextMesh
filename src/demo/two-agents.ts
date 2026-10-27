@@ -14,23 +14,27 @@ import { codexExecArguments, codexMcpConfiguration, powershellQuote, writeCodexS
 import { availablePort, launchService, nodeArguments, sourceRoot, waitFor } from "./processes.js";
 import { twoAgentPrompt } from "./two-agent-prompts.js";
 import { readReceipts } from "./receipts.js";
-import { authImplementation, peerTools, simulatePair, writeAuthTests } from "./simulated-pair.js";
+import { peerTools, simulatePair } from "./simulated-pair.js";
+import { seedSnakeFixture, snakeImplementation, writeSnakeBrowser } from "./snake-fixture.js";
+import { startDemoAgent } from "./live-agent.js";
+import { writePresentation } from "./presentation.js";
 import { verifyFixture } from "./verify-fixture.js";
 
 const execute = promisify(execFile);
-export interface TwoAgentDemoOptions { live: boolean; operatorEdit?: boolean; timeoutMs?: number; baseDirectory?: string; log?: (message: string) => void }
+export interface TwoAgentDemoOptions { live: boolean; operatorEdit?: boolean; launchAgents?: boolean; timeoutMs?: number; baseDirectory?: string; log?: (message: string) => void }
 export interface TwoAgentDemoReport {
   mode: "two-live-codex" | "two-simulated-mcp-peers"; operatorEdit: boolean;
   projectId: string; directory: string; repositoryPath: string; checks: string[];
-  sessionIds: string[]; fixtureTestsPassed: boolean;
+  sessionIds: string[]; fixtureTestsPassed: boolean; fixture: "snake"; elapsedSeconds: number;
 }
 export async function runTwoAgentDemo(options: TwoAgentDemoOptions): Promise<TwoAgentDemoReport> {
   if (options.operatorEdit && !options.live) throw new Error("Operator-edit mode requires live agents");
+  if (options.launchAgents && !options.live) throw new Error("Launching agents requires live mode");
+  const started = Date.now();
   const log = options.log ?? (() => {}), codex = options.live ? resolveCodexLaunch() : undefined;
   const base = resolve(options.baseDirectory ?? ".contextmesh/demos"); mkdirSync(base, { recursive: true });
   const directory = mkdtempSync(join(base, "pair-")), repositoryPath = join(directory, "repository"), projectId = "pair-" + directory.split(/[\\/]/).at(-1);
-  mkdirSync(join(repositoryPath, "src"), { recursive: true });
-  writeFileSync(join(repositoryPath, "src/auth.ts"), "export function authenticate(token: string): boolean { return false; }\n");
+  seedSnakeFixture(repositoryPath);
   const git = (...args: string[]) => execute("git", ["-C", repositoryPath, ...args], { windowsHide: true, timeout: 5000 });
   await git("init"); await git("add", "."); await git("-c", "user.name=ContextMesh Demo", "-c", "user.email=demo@example.invalid", "commit", "-m", "Two-session fixture baseline");
   const port = await availablePort(), url = "http://127.0.0.1:" + port, api = new LocalApiClient(url);
@@ -40,25 +44,28 @@ export async function runTwoAgentDemo(options: TwoAgentDemoOptions): Promise<Two
   process.on("SIGINT", interrupt); process.on("SIGTERM", interrupt);
   let service: Awaited<ReturnType<typeof launchService>> | undefined;
   const clients: Client[] = [], checks: string[] = [];
+  const agents: ReturnType<typeof startDemoAgent>[] = [];
   let simulation: Promise<void> | undefined, simulationFailure: unknown;
   const pass = (message: string) => { checks.push(message); log("PASS: " + message); };
   const status = async () => (await api.read("status", { projectId }) as { state: ProcessorSnapshot }).state;
   let editedA = false, editedB = false;
+  let overlapExplanation: string | undefined;
   const sample = async () => {
     const state = await status();
-    const failure = state.blockers.find(b => b.status === "open" && b.id !== "waiting-for-auth");
+    overlapExplanation ??= state.warnings.find(w => w.kind === "expected_overlap")?.message;
+    const failure = state.blockers.find(b => b.status === "open" && b.id !== "waiting-for-snake");
     if (failure) {
       controller.abort(new Error("Session " + failure.sessionId + " reported a blocker: " + failure.description));
       controller.signal.throwIfAborted();
     }
-    if (options.operatorEdit && !editedA && state.tasks.some(t => t.id === "auth-task")) {
-      writeFileSync(join(repositoryPath, "src/auth.ts"), authImplementation); editedA = true;
-      log("OPERATOR EDIT: harness wrote src/auth.ts; this is not attributed to Codex A.");
+    if (options.operatorEdit && !editedA && state.tasks.some(t => t.id === "snake-task")) {
+      writeFileSync(join(repositoryPath, "snake.js"), snakeImplementation); editedA = true;
+      log("OPERATOR EDIT: harness wrote snake.js; this is not attributed to Codex A.");
       await api.refresh({ projectId, sessionId: "codex-a" });
     }
-    if (options.operatorEdit && !editedB && state.blockers.some(b => b.id === "waiting-for-auth" && b.status === "resolved")) {
-      writeAuthTests(repositoryPath); editedB = true;
-      log("OPERATOR EDIT: harness wrote tests/auth.test.mjs; this is not attributed to Codex B.");
+    if (options.operatorEdit && !editedB && state.blockers.some(b => b.id === "waiting-for-snake" && b.status === "resolved")) {
+      writeSnakeBrowser(repositoryPath); editedB = true;
+      log("OPERATOR EDIT: harness wrote index.html, app.js and tests/snake.test.mjs; not attributed to Codex B.");
       await api.refresh({ projectId, sessionId: "codex-b" });
     }
     return state;
@@ -89,38 +96,52 @@ export async function runTwoAgentDemo(options: TwoAgentDemoOptions): Promise<Two
         log("Terminal " + (role === "a" ? "2 (Codex A)" : "3 (Codex B)") + ":\n" + scripts.command);
       }
       writeFileSync(join(directory, "connection.json"), JSON.stringify({ url, projectId, repositoryPath, codex, sessionIds: ["codex-a", "codex-b"] }, null, 2));
+      if (options.launchAgents) {
+        for (const role of ["a", "b"] as const) {
+          const prompt = twoAgentPrompt(role, projectId, repositoryPath, Boolean(options.operatorEdit));
+          const configuration = codexMcpConfiguration(url, "demo/mcp", envFor("codex-" + role));
+          agents.push(startDemoAgent(codex, codexExecArguments(repositoryPath, configuration, prompt, options.operatorEdit), repositoryPath, controller, role, log));
+        }
+        log("Both Codex sessions launched. Only coordination checkpoints are displayed; conversations are not recorded.");
+      }
     } else {
       const a = await connect("codex-a"), b = await connect("codex-b");
       simulation = simulatePair(a, b, projectId, repositoryPath, controller.signal).catch(error => { simulationFailure = error; controller.abort(error); });
     }
     await wait("A's task, Git evidence and readiness checkpoint", state => {
-      const ready = state.memoryVersions.some(m => m.memoryId === "auth-ready");
-      const changed = state.evidence.some(e => e.files.some(f => f.path === "src/auth.ts"));
+      const ready = state.memoryVersions.some(m => m.memoryId === "snake-ready");
+      const changed = state.evidence.some(e => e.files.some(f => f.path === "snake.js"));
       return ready && changed ? true : undefined;
     });
     pass("Session A reported its task and Git verified a real fixture change");
     await wait("B to receive active work and overlap warning", () => {
       const receipts = readReceipts(receiptPath("codex-b"));
       const task = receipts.findIndex(r => r.operation === "task_started" && r.warningIds?.length);
-      const sawActiveWork = receipts.slice(0, task).some(r => r.operation === "context" && r.items?.some(i => i.kind === "active_task" && i.id === "auth-task") && r.items.some(i => i.kind === "git_evidence"));
+      const sawActiveWork = receipts.slice(0, task).some(r => r.operation === "context" && r.items?.some(i => i.kind === "active_task" && i.id === "snake-task") && r.items.some(i => i.kind === "git_evidence"));
       return task >= 0 && sawActiveWork && receipts.some(r => r.operation === "context" && r.items?.some(i => i.kind === "warning")) ? true : undefined;
     });
+    const overlap = (await api.read("history", { projectId, limit: 500 }) as ContextMeshEvent[]).find(e => e.sessionId === "codex-b" && e.type === "progress_checkpoint" && String(e.payload.content).startsWith("Overlap acknowledged"));
+    log("OVERLAP: " + (overlapExplanation ?? (overlap ? overlap.payload.content : "Both sessions initially expect to edit snake.js; receipt verified.")));
     pass("Session B retrieved A's active context and received the real overlap warning");
-    await wait("B's narrowed task and dependency blocker", state => state.tasks.some(t => t.id === "tests-task" && t.expectedFiles.length === 1 && t.expectedFiles[0] === "tests/auth.test.mjs") && state.blockers.some(b => b.id === "waiting-for-auth") ? true : undefined);
+    await wait("B's narrowed task and dependency blocker", state => state.tasks.some(t => t.id === "browser-task" && t.expectedFiles.length === 3 && ["index.html", "app.js", "tests/snake.test.mjs"].every(p => t.expectedFiles.includes(p))) && state.blockers.some(b => b.id === "waiting-for-snake") ? true : undefined);
     assert.equal((await status()).warnings.length, 0);
     pass("B narrowed its scope; overlap cleared and its dependency blocker was recorded");
     await wait("B to retrieve A's decision and handoff", state => {
-      const received = readReceipts(receiptPath("codex-b")).some(r => r.operation === "context" && r.items?.some(i => i.kind === "handoff" && i.taskId === "auth-task" && i.sessionId === "codex-a") && r.items.some(i => i.kind === "decision" && i.sessionId === "codex-a"));
-      return received && state.memoryVersions.some(m => m.memoryId === "handoff-consumed-b") && state.blockers.some(b => b.id === "waiting-for-auth" && b.status === "resolved") ? true : undefined;
+      const received = readReceipts(receiptPath("codex-b")).some(r => r.operation === "context" && r.items?.some(i => i.kind === "handoff" && i.taskId === "snake-task" && i.sessionId === "codex-a") && r.items.some(i => i.kind === "decision" && i.sessionId === "codex-a"));
+      return received && state.memoryVersions.some(m => m.memoryId === "handoff-consumed-b") && state.blockers.some(b => b.id === "waiting-for-snake" && b.status === "resolved") ? true : undefined;
     });
+    const decision = (await status()).memoryVersions.find(m => m.kind === "decision");
+    if (decision) log("SHARED DECISION: " + decision.content + " | Why: " + decision.rationale);
     pass("B retrieved A's decision and completion handoff, then resolved its blocker");
     const completed = await wait("both task completions and session endings", state => state.tasks.length === 2 && state.tasks.every(t => t.status === "completed") && state.sessions.length === 2 && state.sessions.every(s => s.status === "ended") ? state : undefined);
     assert(completed.sessions.every(s => s.agentType === (options.live ? "codex" : "mock")));
-    assert(completed.evidence.some(e => e.files.some(f => f.path === "tests/auth.test.mjs")));
+    assert(completed.evidence.some(e => e.files.some(f => f.path === "tests/snake.test.mjs")));
     const testOutput = await verifyFixture(repositoryPath);
     writeFileSync(join(directory, "fixture-test-results.txt"), testOutput);
     pass("Both tasks completed and sessions ended; the harness independently passed the fixture tests");
     await simulation;
+    if (agents.length) await waitFor(async () => agents.every(agent => agent.finished) ? true : undefined, "Codex processes to exit", options.timeoutMs ?? 300000, controller.signal);
+    controller.signal.throwIfAborted();
     const history = await api.read("history", { projectId, limit: 500 }) as ContextMeshEvent[];
     const registration = history.find(e => e.type === "session_started" && e.sessionId === "codex-a"); assert(registration);
     await service.stop(); service = await launchService(directory, port);
@@ -138,13 +159,15 @@ export async function runTwoAgentDemo(options: TwoAgentDemoOptions): Promise<Two
     assert.equal(JSON.parse(cli.stdout).state.acceptedEventCount, before);
     const doctor = await api.read("doctor"); assert.equal((doctor as { ok: boolean }).ok, true);
     pass("CLI and service agree on healthy, persistent project state");
-    const result: TwoAgentDemoReport = { mode: options.live ? "two-live-codex" : "two-simulated-mcp-peers", operatorEdit: Boolean(options.operatorEdit), projectId, directory, repositoryPath, sessionIds: ["codex-a", "codex-b"], fixtureTestsPassed: true, checks };
+    const result: TwoAgentDemoReport = { mode: options.live ? "two-live-codex" : "two-simulated-mcp-peers", operatorEdit: Boolean(options.operatorEdit), projectId, directory, repositoryPath, sessionIds: ["codex-a", "codex-b"], fixtureTestsPassed: true, fixture: "snake", elapsedSeconds: Math.round((Date.now() - started) / 1000), checks };
     writeFileSync(join(directory, "report.json"), JSON.stringify(result, null, 2));
+    writePresentation(result, recovered);
     log("Demo passed. Artifacts retained in " + directory); return result;
   } catch (error) {
     writeFileSync(join(directory, "failure.json"), JSON.stringify({ checks, message: error instanceof Error ? error.message : "Demo failed" }, null, 2)); throw error;
   } finally {
     controller.abort(); await simulation;
+    await Promise.allSettled(agents.map(agent => agent.stop()));
     await Promise.allSettled(clients.map(client => client.close()));
     await service?.stop(); process.off("SIGINT", interrupt); process.off("SIGTERM", interrupt);
   }

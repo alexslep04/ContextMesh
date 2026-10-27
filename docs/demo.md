@@ -1,210 +1,116 @@
-# Thursday demo runbook
+# Snake demo: what to run and what to show
 
-Primary target: two live Codex sessions. The original one-live/simulated-peer
-workflow remains available. Run from
-ContextMesh in PowerShell. Requires Node 22.18+, npm dependencies, Git, and an
-authenticated MCP-capable Codex CLI for live mode.
+MVP scope: two Codex sessions. Claude Code and OpenCode are stretch goals.
+Requires Node 22.18+, npm, Git and a logged-in Codex CLI. The desktop app can
+remain open; the demo launches independent CLI processes with your existing
+login. See [Codex setup](codex.md).
 
-## Two live Codex sessions
+## One terminal plus a browser (recommended)
 
-In Terminal 1, from the ContextMesh checkout:
-
-```powershell
-npm run demo -- --two-live --timeout 300
-```
-
-Keep that command running. It prints `check-login.ps1`, `start-agent-a.ps1`
-and `start-agent-b.ps1` commands using the actual absolute paths for this run.
-Run the login check, then the A command in Terminal 2 and B command in Terminal
-3. Both can start together. Each uses an independent ephemeral Codex invocation
-and MCP bridge, with the same project ID and a distinct session ID. Scripts
-resolve the installed CLI (including the VS Code installation) without relying
-on a `codex` command being available in the other terminals.
-
-The fixture demonstrates this sequence:
-
-1. A reports authentication work, edits `src/auth.ts`, and refreshes Git.
-2. B retrieves A's active task, readiness checkpoint and Git evidence.
-3. B intentionally includes `src/auth.ts` in its initial expected scope. It
-   receives an overlap warning; both agents acknowledge the coordination issue.
-4. B updates its task to `tests/auth.test.mjs` only. The warning clears. B records
-   a dependency blocker while waiting for A's completed interface.
-5. A saves the decision/rationale, completes a useful handoff and ends its session.
-6. B retrieves that decision and handoff through MCP, saves a checkpoint,
-   resolves its blocker, adds/tests the contract tests, completes and ends.
-7. The harness independently runs the test file and checks the token contract.
-   It restarts the actual service and verifies both handoffs from a new MCP
-   connection, then verifies replay protection and CLI consistency.
-
-Expect **eight PASS checkpoints** and `report.json` with mode `two-live-codex`.
-The fixture is a demonstration token predicate, not production authentication.
-The overlap is deliberately introduced by the demo task instructions;
-ContextMesh neither assigns the tasks nor forces the agents to narrow them.
-The post-restart reader is a deterministic MCP verifier, not a third live model.
-
-For this host's restricted file execution, use:
-
-```powershell
-npm run demo -- --two-live --operator-edit --timeout 300
-```
-
-Run the two newly printed scripts. Both Codex sessions still perform their own
-context retrieval, semantic reports, coordination and handoffs. The harness
-explicitly writes the implementation and test fixture at the appropriate
-checkpoints; the agents must not claim authorship or test execution. The report
-records `operatorEdit: true`. This demonstrates live coordination with operator
-file edits, not two agents authoring code. Do not bypass a host policy rejection.
-
-For deterministic rehearsal without model usage:
-
-```powershell
-npm run demo -- --two-simulated
-```
-
-This follows the same eight-check workflow using separate real stdio MCP
-processes and scripted semantic peers. Its report is labeled
-`two-simulated-mcp-peers`. It is included in the ordinary test suite.
-
-Each bridge records only operation names, request IDs, warning IDs and returned
-context item provenance under `*-receipts.jsonl`. Assertions check B's actual
-context response before its task report and its receipt of A's handoff. These
-files exclude tool payloads, full context text, prompts and model responses.
-`fixture-test-results.txt` records the independent test runner's output.
-Handled failures produce `failure.json` with completed checkpoints and the
-failure message. Ctrl+C stops the harness-owned service; close the separately
-started Codex sessions too if interrupting early.
-
-## Automated rehearsal
+From the ContextMesh checkout:
 
 ```powershell
 npm ci
-npm run typecheck
-npm run build
-npm test
-npm run demo
+npm run demo:live
 ```
 
-Default mode simulates both sessions but uses real HTTP, stdio MCP, Git,
-SQLite, CLI and a real service process restart. Seven PASS checkpoints must
-appear. Success is saved under `.contextmesh/demos/demo-*/report.json`.
-This is diagnostic rehearsal, not evidence of a real host run.
+Setup only needs `npm ci` after cloning/dependency changes. `demo:live` checks
+Codex login and starts its own local ContextMesh service on a free loopback
+port. Do not start `npm run dev` for this demo. It automatically launches A and B,
+prints coordination checkpoints, independently verifies tests and restart,
+stops the service and keeps a game preview running. Open the printed
+`PLAY SNAKE: http://127.0.0.1:...` URL in your browser. Ctrl+C stops preview.
 
-## Live-agent demo
+The agents write the actual game. A receives an engine task; B receives browser
+and test work with an intentionally overlapping initial scope. These are
+operator-selected instructions in the harness, not tasks assigned by the core.
+Automatic mode displays checkpoint summaries rather than agent conversations.
+It does not store model output. Live execution uses normal Codex account usage
+and permissions; no new account or API key is required when ChatGPT login works.
+
+## A few-minute presentation
+
+Start live generation a few minutes before your speaking slot. Do not promise a
+fixed model runtime; it depends on model latency and the host. Keep one verified
+saved game as backup. A short talk can show the results of the run while you
+point to the terminal evidence; no need to narrate every tool call.
+
+| Moment | Show | Say |
+| --- | --- | --- |
+| 0:00-0:30 | Terminal: A task + real Git change | Two independent Codex sessions share one project. A builds Snake rules. |
+| 0:30-1:15 | OVERLAP line, followed by scope-change PASS | B read A's actual context, noticed both planned to edit snake.js, and narrowed its own scope to browser/tests. |
+| 1:15-2:00 | SHARED DECISION and handoff/restart PASS lines | B consumed A's interface decision and handoff. Both completed. A real service restart retained the knowledge. |
+| 2:00-3:00 | Browser: click Start, steer, Pause, Restart | Here is the playable game the two sessions built. ContextMesh helped them coordinate without me relaying messages. |
+
+The overlap is intentional. It demonstrates explained expected-file overlap,
+not a detected merge conflict or proven per-session authorship. ContextMesh
+warns; it does not block edits. The post-restart reader is a deterministic MCP
+verifier, not a third live model.
+
+## Three visible terminals (optional)
 
 ```powershell
-npm run demo -- --live --timeout 300
+npm run demo -- --two-live --serve --timeout 300
 ```
 
-The harness prints a path to `start-agent.ps1`. Run that exact script in a
-second PowerShell terminal while the harness remains running. The script passes
-the full fixture prompt to an ephemeral Codex invocation with the demo MCP
-connection and limited tool list. It uses the existing host login and does not
-edit global configuration or store credentials in the project.
+Leave Terminal 1 running. It prints a login-check script and launch commands for
+A and B. Run the login check, then the A command in Terminal 2 and B command in
+Terminal 3. Launch both promptly; the 300-second timeout is per phase.
+Do not run these scripts as well as `--launch-agents`: that would duplicate the
+same session identities. Scripts are single-run artifacts; generate a fresh
+run after failure or changing code/configuration.
 
-The harness resolves Codex before starting the service, checking
-`CONTEXTMESH_CODEX`, PATH, standard standalone/npm locations and the VS Code
-extension. The generated scripts use the resolved absolute executable path;
-Terminal 2 does not need a `codex` command on PATH. The harness prints a
-`check-login.ps1` command that checks the same executable's login status.
-Run that check in Terminal 2, then run the printed `start-agent.ps1` command.
-
-For a custom installation, set an absolute path in Terminal 1 before starting:
+## Rehearsal and honest fallbacks
 
 ```powershell
-$env:CONTEXTMESH_CODEX = 'C:\path\to\codex.exe'
+npm run demo -- --serve
 ```
 
-An installed npm `codex.js` entry point is also supported. If no installation
-can be found, the harness fails immediately with a diagnostic. See
-[official CLI installation instructions](https://learn.chatgpt.com/docs/codex/cli)
-for machines that do not have Codex installed.
+This follows the same eight checks with deterministic peers and is labeled
+`two-simulated-mcp-peers`. HTTP, stdio MCP, Git, SQLite and restart are real;
+the models and edits are simulated. Default `npm run demo` runs the same
+rehearsal without keeping preview open, so it exits for automation.
 
-The live agent registers, retrieves context, reports work, edits `src/auth.ts`
-and refreshes Git. The harness then registers its simulated peer, retrieves
-context and reports overlap. The live agent sees the warning, records a decision
-and completes its handoff. The harness restarts the service and checks retrieval,
-replay protection and CLI output.
+If a host denies agent file execution, do not bypass its policy. An explicitly
+labeled fallback is `npm run demo:live -- --operator-edit`. The harness then
+writes the fixture while both live models perform semantic coordination.
+Its report sets `operatorEdit:true`; it is not native agent-authored coding.
+The earlier simulated authentication check is `npm run demo -- --legacy-auth`.
 
-### Hosts with read-only file execution
+## Saved evidence and replay
 
-If the host rejects file/shell operations, use the explicit variant:
+Each run prints a fresh `.contextmesh/demos/pair-...` directory, containing:
+
+- `report.json`: mode, operatorEdit, elapsed time and eight checks.
+- `presentation.md`: checks and actual decision/handoffs recovered after restart.
+- `fixture-test-results.txt`: independent Node test output (explicit TAP).
+- `*-receipts.jsonl`: operation IDs and returned context provenance, no tool
+  payloads or model conversations.
+- `repository/`: the playable game and tests; `state.db`: persistent shared state.
+- Generated connection/prompts/scripts, plus service diagnostics.
+
+Replay a saved game without calling any model:
 
 ```powershell
-npm run demo -- --live --operator-edit --timeout 300
+npm run demo:play -- '<demo-directory>'
 ```
 
-Run the newly generated script in a second terminal. The live model performs
-all semantic reporting and context requests through MCP. After its task report,
-the harness makes a labeled operator edit to the disposable fixture. Git verifies
-that edit. The agent must not claim authorship or report that operator change as
-its own activity. This is a live semantic-coordination demo with an operator
-edit, not an agent-authored-code demo; the report identifies it.
+Or run that directory's `play.ps1`. Preview serves only index.html, app.js and
+snake.js on loopback; it does not expose the database, Git metadata or receipts.
+Game controls start paused. Use arrows/WASD, Start/Pause and Restart.
 
-## Presentation sequence
+## Failure and recovery
 
-1. Explain the problem: independent sessions can duplicate work and lose rationale.
-2. Show live task registration and context retrieval.
-3. Show Git evidence and the simulated peer's named overlap warning.
-4. Show the decision rationale and completion next steps.
-5. Show restart retrieval and replay protection.
-6. Explain that ContextMesh informs and warns; it does not assign work or block
-   edits. Identify the simulated peer and any operator edit clearly.
+A handled failure writes `failure.json` with its checkpoints and diagnostic;
+it never writes a success report. Fix the cause and start a fresh run. In
+automatic mode the harness stops its own agent process trees and service. In
+separate-terminal mode also stop the two CLI processes yourself. Old artifacts
+remain for diagnosis and never reset your ordinary repository/database.
 
-The harness owns a service on a free loopback port and stops it on completion or
-handled failure. Each run uses a fresh fixture/database; it never resets an
-ordinary checkout/database. Artifacts contain the fixture, database, service
-logs, connection settings, generated prompt/script and summary. They do not
-store model conversations or credentials.
-
-## Inspect saved state
-
-Use the printed directory as `<demo-directory>`. Start the preserved database:
-
-```powershell
-$env:CONTEXTMESH_DB = '<demo-directory>\state.db'
-$env:CONTEXTMESH_PORT = '4317'
-npm run dev
-```
-
-In another terminal, set the same port and use `projectId` from `report.json`:
-
-```powershell
-$env:CONTEXTMESH_PORT = '4317'
-npm run cli -- status --project '<project-id>'
-npm run cli -- sessions --project '<project-id>'
-npm run cli -- conflicts --project '<project-id>'
-npm run cli -- context --project '<project-id>'
-npm run cli -- history --project '<project-id>' --json
-npm run cli -- doctor
-```
-
-## Recovery and freeze
-
-- Service/MCP unavailable: inspect the endpoint and `service.log`; rerun for a
-  fresh instance and generated configuration.
-- `codex` unrecognized or `spawn codex ENOENT`: start a fresh demo using this
-  version and run its newly generated scripts, which use an absolute executable
-  path. Old scripts from earlier demo folders still depend on PATH.
-- MCP denied: check host tool policy and the generated connection. Organization
-  policy may still reject tools; report the limitation rather than success.
-- File execution denied: use operator-edit mode; do not bypass host policy.
-- `sandbox: read-only` in native mode despite the generated `workspace-write`:
-  regenerate scripts with the current version. The previous launcher used
-  `--ignore-user-config`, which omitted this host's Windows sandbox setup.
-  Native launches now preserve normal user configuration and policy. Old
-  generated scripts still have the faulty flag; restarting A alone does not fix
-  them. If a genuine managed restriction remains, use operator-edit.
-- Timeout: inspect host output. The task must be reported before the simulated
-  peer starts. Reports are written only after every assertion passes.
-- Restart recovers dead PID locks but never replaces a live owner. Do not remove
-  a running service's ownership lock.
-- Rehearse twice on the presentation machine, preserve the verified revision,
-  and prepare a short recording. Label automated fallback runs as simulated.
-
-Ordinary-project connections now support managed lifecycle and optional host
-hooks, independently of the intentionally explicit demo prompts. Claude support
-is implemented but disabled pending live verification. Two Codex sessions do
-not verify the specification's separate Claude integration requirement.
-The latest native-edit attempt (`pair-nsqdRe`) failed honestly when host policy
-rejected the initial shell command; it made no fixture changes or success report.
-Use operator-edit on this restricted host and native mode on a permitted host.
+For live CLI errors, retry separate-terminal mode so you can read each CLI's
+own diagnostic. Check `codex --version`, `codex login status`, normal sandbox
+setup/trust and Node/Git availability. If Codex is not found, set an absolute
+`CONTEXTMESH_CODEX` path or follow codex.md. The scripts preserve normal user
+configuration and do not bypass permissions. Forced crashes may leave a stale
+session; ordinary projects support CLI `end-session` recovery without completing
+unfinished work.

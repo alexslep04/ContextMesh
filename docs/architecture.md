@@ -29,7 +29,9 @@ historical versions. HTTP, MCP and CLI call the same application behavior.
 Managed Codex launchers own session registration, bounded startup context and
 exit cleanup. Host adapters normalize documented hook inputs; a common advisory
 runner calls the local API and refreshes Git. Hook errors never block host work
-or complete tasks. Claude configuration defaults disabled until live acceptance.
+or complete tasks. Claude configuration defaults disabled; Claude Code and OpenCode are stretch goals.
+Explicit Codex MCP with managed lifecycle is the MVP baseline; optional hooks
+do not gate this release.
 
 The demo uses public interfaces and isolated fixtures. Its acceptance test starts
 real service and MCP processes, edits a Git fixture, restarts the service with

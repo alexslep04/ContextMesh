@@ -1,179 +1,83 @@
-# Demo verification: October 20, 2026
+# Demo verification: October 27, 2026
 
-Verified locally on Windows with Node 22.18.0, Git, and the installed Codex CLI
-0.162.0-alpha.17.2. This records completed checks, not a promise about a different
-presentation machine or host policy.
+Scope: the Codex-only Snake demo MVP. Claude Code and OpenCode are stretch goals.
+Verified on Windows with Node 24.11.1, Git and Codex CLI 0.164.0-alpha.11.1 using
+an existing ChatGPT login. No credentials or conversations are committed.
 
-## Automated checks
+## Automated verification
 
 - `npm run typecheck`: passed.
 - `npm run build`: passed, including migration asset copying.
-- `npm test`: 58 tests in 20 files passed after the teammate SQLite integration.
-- `npm run demo`: passed with real HTTP/stdio MCP/Git/CLI/SQLite processes.
-- `node dist/src/demo/index.js`: passed against the compiled build and copied
-  migrations, including a real service process restart.
+- `npm test`: **62 tests in 21 files passed**.
+- Source Snake rehearsal: eight checks passed through the acceptance suite.
+- `node dist/src/demo/index.js --two-simulated`: eight checks passed;
+  pair-bTOKSM completed in 5 seconds.
 - `git diff --check`: passed.
-- Human-readable CLI sessions/tasks/conflicts/history/context/memories were
-  exercised against a preserved live-rehearsal database.
+- Empty-PATH discovery in a normal Windows environment resolved the actual
+  desktop-bundled CLI, independent of the app's injected PATH.
 
-Coverage includes cross-interface visibility and the stale-write regression;
-ownership/lifecycle and project isolation; delayed delivery; replay/conflicting
-identities; rollback on a real SQLite write failure; legacy schema adoption and
-legacy retries; immutable versions and current-only FTS; Git changes, linked
-worktrees, detached HEAD and failures; context scope/relevance/budgets; unavailable
-and nonresponding service errors; memory history/export; and the process-based
-acceptance scenario.
+Coverage includes existing domain/storage/HTTP/MCP/Git/adapter contracts plus
+Snake rules, independent rejection of a broken implementation even when peer
+tests pass, actual browser-module controls via a deterministic DOM/timer double,
+loopback preview/asset limits, invalid CLI modes/timeouts, desktop CLI discovery,
+failed automatic agent launch and cleanup of a demo-owned process tree.
+The connection test now has a bounded 20s budget for its multiple Git/process
+checks, avoiding the observed 5s timeout under concurrent test load.
 
-## Teammate SQLite integration
+The fixture verifier explicitly requests TAP. Its previous assumption about
+Node's default reporter caused false failures on Node 24 even with passing
+fixture tests. Independent rule checks remain separate from peer-authored tests.
 
-Integrated `origin/main` at `a08c974` on `integrate/teammate-sqlite`, with the
-previous local MVP preserved at checkpoint `5287aef` on `work/contextmesh-mvp`.
-The integration is staged for review; the final merge commit and push remain
-undone at the user's request.
+## Native two-Codex acceptance
 
-The teammate's project repository now participates in production persistence.
-Database startup uses the versioned migration runner, and the build uses one
-migration-copy script. Tests cover legacy database upgrades, reopening saved
-projects, and project updates through the event processor.
+Both runs used real agent file edits and separate MCP bridges, with
+`mode:two-live-codex`, `operatorEdit:false` and all eight checks passing:
 
-Typecheck, build, and all 58 tests passed. Both
-`npm run demo -- --two-simulated` (`pair-2y7uKO`) and
-`node dist/src/demo/index.js --two-simulated` (`pair-nRt8Sl`) passed all eight
-checks. These runs validate the source and compiled process paths; no additional
-live model validation is claimed for this storage integration.
+| Run | Entry | Elapsed |
+| --- | --- | --- |
+| pair-PhypjH | Source, automatic two-agent launch | 184 seconds |
+| pair-0FlJy1 | Compiled build, automatic two-agent launch | 213 seconds |
 
-## Live host checks
+A authored snake.js; B consumed A's actual context, intentionally declared an
+overlapping initial scope, acknowledged the warning, narrowed to browser/tests,
+recorded a dependency blocker, retrieved A's decision/rationale and handoff,
+resolved its blocker and authored index.html, app.js and tests. Both sessions
+completed/ended. The harness independently ran each peer's tests and checked
+movement, growth/scoring, reversal, collisions, vacating-tail behavior, input
+validation, immutability, ended/full-board state and executable browser controls.
 
-Two real Codex sessions completed the semantic workflow with the simulated peer:
+It then restarted the actual service, retrieved both handoffs and the decision
+through a new MCP connection, checked duplicate registration did not change
+state, and verified CLI/doctor consistency. The restart reader is deterministic;
+these runs do not claim a third live model or automatic core task assignment.
 
-- `demo-swghgV`: live MCP registration, context, task, evidence inspection,
-  overlap acknowledgment, decision and completion; seven harness assertions passed.
-- `demo-2nUSVT`: repeated successfully using the generated PowerShell/Node
-  launcher, including restart recovery, replay protection and CLI checks.
+Structured reports, databases, receipts and game files are retained locally
+under `.contextmesh/demos/`, ignored by Git. They contain no captured model
+conversations. Each teammate should regenerate their own evidence using the
+runbook; those local files are not required for cloning or running the demo.
 
-The reports and fixture databases are retained locally under
-`.contextmesh/demos/`. They are ignored artifacts; teammates should rerun the
-runbook to generate their own evidence rather than expect these files in Git.
-Reports contain structured results, not model transcripts or credentials.
+## Browser check
 
-This host rejected Codex shell/file execution in the initial native-edit attempt.
-The successful live runs therefore used explicit operator-edit mode. The live
-model performed reporting/context/decision/handoff operations; the harness made
-and labeled the fixture edit. Git verified it without attributing authorship to
-the model. Native agent file execution and live Claude integration are not
-claimed as verified. The standard live mode remains available for a host with
-file execution; use the tested operator-edit mode on this machine.
-
-## Reproduce
-
-The launcher discovery fix was also checked against the real installed Codex
-with an empty PATH: it found the VS Code-bundled executable and `login status`
-reported `Logged in using ChatGPT`. Six regression tests cover extension
-discovery, explicit/invalid overrides, npm shims, missing installations, empty-PATH
-launching, argument preservation and child exit status. Generated login/start
-scripts now use an absolute executable path across terminals.
-
-Follow [the demo runbook](demo.md). For the tested live configuration:
+Opened the agent-authored pair-PhypjH game in the browser through the loopback
+preview. Confirmed the canvas, readable score/status and buttons; Start and
+keyboard steering produced score 1; wall collision showed Game over; Restart
+reset the game; Pause stopped play. Saved a full-page screenshot locally at
+pair-PhypjH/snake-preview.jpg. Replay needs no model calls:
 
 ```powershell
-npm run demo -- --live --operator-edit
+npm run demo:play -- '.contextmesh/demos/pair-PhypjH'
 ```
 
-Run the printed `start-agent.ps1` in a second terminal. The Node launcher
-preserves TOML argument quoting on Windows PowerShell 5, uses the existing
-Codex login, and limits the invocation to the local demo tools. Preserve the
-reviewed implementation revision and repeat the live rehearsal before presenting.
+## Presentation and boundaries
 
-## Two-Codex milestone
+Use `npm run demo:live`: automatic live launch plus a persistent local preview.
+Use `npm run demo -- --two-live --serve` for separate visible agent terminals,
+or `npm run demo -- --serve` for a clearly labeled deterministic fallback.
+Rehearse on the presentation machine; the observed roughly three-minute live
+runs are measurements, not fixed latency guarantees. Existing login, normal
+sandbox permissions and model availability are prerequisites.
 
-Two independent live Codex sessions completed the new eight-check workflow:
-
-- `pair-1LHd7J`: source entry point, two generated PowerShell launchers, separate
-  native CLI sessions and separate MCP bridges. All eight assertions passed.
-- `pair-k1dj3F`: compiled `dist/src/demo/index.js` and compiled MCP bridge;
-  repeated successfully with both live agents. All eight assertions passed.
-
-Both runs used explicit operator edits. A reported implementation intent and
-read Git evidence. B retrieved that actual active context and received the
-expected-file warning; it narrowed scope and recorded a dependency blocker.
-A saved its decision and handoff, then ended. B retrieved the decision and
-handoff through MCP, resolved its blocker, reviewed the operator test fixture,
-completed and ended. The harness ran three Node fixture tests independently,
-restarted the actual service, recovered both handoffs through a fresh MCP
-connection, replayed registration and verified CLI consistency.
-
-The second run also independently checked the token predicate outside the
-peer's test file. The final suite verifies rejection of a broken implementation
-even when the peer's own tests pass. The compiled deterministic two-peer
-rehearsal also passed. Native agent-authored edits remain unverified on this
-restricted host; neither successful run claims them.
-
-The final automated suite also covers ordinary-project connection preparation,
-distinct identities, existing session/repository mismatch checks, invalid Git
-directories, unreachable service, actual CLI `connect codex` output, absolute
-runtime entry paths, loopback configuration, receipt scope/content exclusion,
-and interrupted coordination waits. The Node minimum is now 22.18.0, matching
-the verified runtime and the demo's built-in TypeScript execution path.
-
-Use `npm run demo -- --two-live --operator-edit` and run both printed scripts
-in separate terminals. See [the runbook](demo.md) and [MVP status](mvp-status.md).
-
-## Memory, lifecycle and Claude preparation
-
-The completion-stage checks passed typecheck, build and 54 tests in 19 files.
-New integration coverage verifies optimistic memory revision/deletion, immutable
-history/tombstones, stale version conflicts, exact replay, current-only FTS
-search, project scope, restart recovery and the actual HTTP/MCP/CLI seams.
-
-Managed-launch tests run real child processes and HTTP/Git. They verify automatic
-registration/context/cleanup, preserving unfinished work after child failure,
-single-use and duplicate-session protection, generated runtime entry points and
-continuing ordinary work when ContextMesh is unavailable. Hook fixtures verify
-concurrent duplicate starts, file activity claims plus separate Git evidence,
-resume, Stop without completion, bounded advisory failures, subagent/MCP callback
-exclusion, disabled configuration and absence of transcript/prompt/tool contents
-from event history. CLI tests exercise memory editing/search/deletion and manual
-session recovery with stable retries.
-
-A real Codex session (`managed-kJTQj8`) passed the managed launcher rehearsal:
-automatic registration, bounded startup context, explicit MCP checkpoint, CLI
-exit and automatic `launcher-end`. It intentionally used MCP only, performed no
-file work and does not establish native coding/hook execution.
-
-Native attempt `pair-nsqdRe` requested the normal workspace-write mode but the
-host reported read-only execution and rejected the initial shell command.
-Codex recorded a blocker; the harness emitted failure.json and stopped with no
-file changes, test claims or success report. The waiting peer was then stopped.
-The policy restriction was not bypassed.
-
-Claude connection preparation and disabled launch refusal passed without an
-installed Claude CLI. Adapters/settings follow the official host contracts;
-fixtures are not live-host evidence. Claude and mixed-vendor acceptance remain
-for the teammate checklist in [claude-validation.md](claude-validation.md).
-
-Final compiled smoke checks also passed: `pair-FlrePx` completed the eight-check
-two-peer rehearsal, and `compiled-connections-PgRKyW` exercised generated
-managed Codex runtime/cleanup with a deterministic CLI double plus disabled
-Claude launch refusal. These compiled smoke checks are not live model evidence.
-
-## Windows native launcher regression
-
-The `pair-yUUn6K` report exposed that the generated native launcher passed
-`--ignore-user-config`. This skipped the user's trusted Windows sandbox setup:
-the CLI reported read-only despite the requested workspace-write mode. A
-configuration-only run with the same executable/worktree and preserved user
-config reported workspace-write. Native launches now preserve normal user
-configuration; operator-edit remains explicitly read-only. The one-live demo,
-two-live demo and ordinary managed connections share the argument helper.
-
-No sandbox/trust/managed-policy bypass was added. A regression checks native
-configuration preservation and read-only operator mode. Old generated launch
-scripts retain the faulty flag and must be replaced by starting a fresh run.
-This corrects the earlier assumption that native execution was necessarily
-unavailable on this machine.
-
-Native rehearsal `pair-t1QQA9` then passed all eight checkpoints with
-`operatorEdit: false`: A edited the implementation, B wrote/executed the tests,
-the harness independently verified the contract/tests, and both handoffs
-survived a real service restart. This is verified native two-Codex coding, not
-operator-authored fixture work. Typecheck, build and all 55 tests passed.
+Shared dirty Git files do not prove individual session authorship. Warnings
+reflect expected-file overlap. Offline queuing, optional native hooks, forced
+kill cleanup, additional vendors and broad installer compatibility are not
+claimed as new guarantees. No dashboard or cloud dependency was introduced.
